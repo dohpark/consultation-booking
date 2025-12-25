@@ -1,0 +1,30 @@
+{
+  "name": "consultation-booking",
+  "version": "0.1.0",
+  "private": true,
+  "description": "상담예약 시스템 (Admin + Applicant + Backend)",
+  "scripts": {
+    "dev:admin": "pnpm --filter admin dev",
+    "dev:applicant": "pnpm --filter applicant dev",
+    "dev:server": "pnpm --filter server start:dev",
+    "build:admin": "pnpm --filter admin build",
+    "build:applicant": "pnpm --filter applicant build",
+    "build:server": "pnpm --filter server build",
+    "build:all": "pnpm -r build",
+    "test:all": "pnpm -r test",
+    "lint:all": "pnpm -r lint",
+    "type-check:all": "pnpm -r type-check",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,css,md}\""
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.15.0"
+}
