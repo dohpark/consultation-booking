@@ -1,0 +1,504 @@
+---
+description: 상담예약 시스템의 디자인 원칙, 색상 팔레트, 타이포그래피, 컴포넌트 스타일 등을 정의하는 가이드라인입니다. 프론트엔드 개발 시 이 규칙을 준수해야 합니다.
+globs: apps/admin/**/*, apps/applicant/**/*, packages/shared-ui/**/*
+---
+
+# 상담예약 시스템 디자인 시스템
+
+## 1. 디자인 원칙
+
+### 1.1 브랜드 키워드
+
+- **신뢰성 (Trustworthy)**: 전문가다운 안정감
+- **명확성 (Clarity)**: 직관적이고 이해하기 쉬운 인터페이스
+- **전문성 (Professional)**: 상담 서비스의 품격
+- **접근성 (Accessible)**: 누구나 쉽게 사용 가능
+
+### 1.2 디자인 참고
+
+- **주요 참고**: [biocom.kr](https://biocom.kr/) - 깔끔하고 전문적인 건강 서비스 플랫폼
+- **스타일**: 미니멀, 깔끔함, 정보 중심의 실용적 디자인
+
+## 2. 색상 팔레트
+
+### 2.1 기본 색상
+
+```css
+/* 배경 색상 */
+--color-bg-primary: #ffffff; /* 기본 배경 (흰색) */
+--color-bg-secondary: #f8f9fa; /* 보조 배경 (연한 회색) */
+--color-bg-tertiary: #f5f5f5; /* 3차 배경 */
+--color-bg-dark: #2c3e50; /* 다크 배경 (푸터 등) */
+
+/* 텍스트 색상 */
+--color-text-primary: #212529; /* 기본 텍스트 (진한 회색) */
+--color-text-secondary: #6c757d; /* 보조 텍스트 (중간 회색) */
+--color-text-tertiary: #adb5bd; /* 3차 텍스트 (연한 회색) */
+--color-text-inverse: #ffffff; /* 반전 텍스트 (흰색) */
+
+/* 액센트 색상 */
+--color-primary: #18b4ad; /* 주 액센트 (청록색 - biocom.kr 스타일) */
+--color-primary-dark: #0f8a85; /* 진한 주 액센트 */
+--color-primary-light: #e0f7f5; /* 연한 주 액센트 (배경용) */
+--color-success: #34a853; /* 성공 (초록) */
+--color-warning: #fbbc04; /* 경고 (노랑) */
+--color-error: #ea4335; /* 에러 (빨강) */
+--color-info: #18b4ad; /* 정보 (primary와 동일) */
+
+/* 테두리 색상 */
+--color-border: #dee2e6; /* 기본 테두리 */
+--color-border-light: #e9ecef; /* 연한 테두리 */
+--color-border-dark: #ced4da; /* 진한 테두리 */
+```
+
+### 2.2 색상 사용 가이드
+
+| 용도          | 색상                   | 사용 예시            |
+| ------------- | ---------------------- | -------------------- |
+| 페이지 배경   | bg-primary #FFFFFF     | body 배경            |
+| 섹션 배경     | bg-secondary #F8F9FA   | 구분된 섹션          |
+| 카드/컨테이너 | bg-primary #FFFFFF     | 카드, 폼 배경        |
+| 다크 섹션     | bg-dark #2C3E50        | 푸터, 다크 모드 섹션 |
+| 본문 텍스트   | text-primary #212529   | 일반 텍스트          |
+| 부가 설명     | text-secondary #6C757D | 캡션, 메타 정보      |
+| 비활성 텍스트 | text-tertiary #ADB5BD  | 플레이스홀더, 비활성 |
+| 링크/버튼     | primary #18b4ad        | 링크, Primary 버튼   |
+| 버튼 호버     | primary-dark #0f8a85   | 버튼 호버 상태       |
+| 성공 상태     | success #34A853        | 성공 메시지, 체크    |
+| 경고 상태     | warning #FBBC04        | 경고 메시지          |
+| 에러 상태     | error #EA4335          | 에러 메시지, 삭제    |
+
+### 2.3 접근성
+
+- 텍스트 대비율: WCAG AA 기준 충족
+- Primary on White: 대비율 4.5:1 이상 (AA 통과)
+- Text Primary on White: 대비율 12.6:1 (AAA 통과)
+
+## 3. 타이포그래피
+
+### 3.1 폰트 패밀리
+
+```css
+/* 본문 폰트 (Pretendard) */
+--font-sans: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+/* 제목 폰트 (선택사항 - 필요시) */
+--font-serif: 'Noto Serif KR', Georgia, serif;
+```
+
+### 3.2 폰트 스케일
+
+| 요소             | 데스크톱        | 모바일          | 폰트 | Weight |
+| ---------------- | --------------- | --------------- | ---- | ------ |
+| H1 (페이지 제목) | 2.5rem (40px)   | 1.75rem (28px)  | Sans | 700    |
+| H2 (섹션 제목)   | 2rem (32px)     | 1.5rem (24px)   | Sans | 600    |
+| H3 (카드 제목)   | 1.5rem (24px)   | 1.25rem (20px)  | Sans | 600    |
+| H4 (소제목)      | 1.25rem (20px)  | 1.125rem (18px) | Sans | 600    |
+| Body Large       | 1.125rem (18px) | 1rem (16px)     | Sans | 400    |
+| Body             | 1rem (16px)     | 0.875rem (14px) | Sans | 400    |
+| Small            | 0.875rem (14px) | 0.75rem (12px)  | Sans | 400    |
+| Caption          | 0.75rem (12px)  | 0.625rem (10px) | Sans | 400    |
+
+### 3.3 행간 (Line Height)
+
+- 제목: 1.2 ~ 1.4
+- 본문: 1.5 ~ 1.6
+- 캡션: 1.4
+
+### 3.4 자간 (Letter Spacing)
+
+- 일반 텍스트: 기본값
+- 대문자 라벨: 0.05em
+
+## 4. 여백 시스템
+
+### 4.1 섹션 간격
+
+| 사이즈             | 데스크톱 | 모바일 | Tailwind       |
+| ------------------ | -------- | ------ | -------------- |
+| 섹션 패딩          | 80px     | 48px   | py-12 md:py-20 |
+| 컨테이너 패딩      | 24px     | 16px   | px-4 md:px-6   |
+| 컨테이너 최대 너비 | 1280px   | 100%   | max-w-7xl      |
+
+### 4.2 컴포넌트 간격
+
+| 사이즈 | 값   | Tailwind | 용도               |
+| ------ | ---- | -------- | ------------------ |
+| xs     | 4px  | gap-1    | 아이콘-텍스트 간격 |
+| sm     | 8px  | gap-2    | 인라인 요소 간격   |
+| md     | 16px | gap-4    | 카드 내부 요소     |
+| lg     | 24px | gap-6    | 섹션 내 블록 간격  |
+| xl     | 32px | gap-8    | 카드 패딩          |
+| 2xl    | 48px | gap-12   | 대형 섹션 간격     |
+
+## 5. 컴포넌트
+
+### 5.1 버튼
+
+**스타일: 둥근 모서리 (Rounded Corners)**
+
+```css
+/* Primary Button */
+.btn-primary {
+  background-color: #18b4ad;
+  color: #ffffff;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 1rem;
+  transition: all 200ms ease-out;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-primary:hover {
+  background-color: #0f8a85;
+  box-shadow: 0 2px 8px rgba(24, 180, 173, 0.3);
+}
+
+.btn-primary:disabled {
+  background-color: #adb5bd;
+  cursor: not-allowed;
+}
+
+/* Secondary Button */
+.btn-secondary {
+  background-color: transparent;
+  color: #18b4ad;
+  padding: 12px 24px;
+  border: 2px solid #18b4ad;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 1rem;
+  transition: all 200ms ease-out;
+  cursor: pointer;
+}
+
+.btn-secondary:hover {
+  background-color: #e0f7f5;
+}
+
+/* Outline Button */
+.btn-outline {
+  background-color: #ffffff;
+  color: #212529;
+  padding: 12px 24px;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 1rem;
+  transition: all 200ms ease-out;
+  cursor: pointer;
+}
+
+.btn-outline:hover {
+  background-color: #f8f9fa;
+  border-color: #ced4da;
+}
+```
+
+### 5.2 카드
+
+```css
+.card {
+  background-color: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 200ms ease-out;
+}
+
+.card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: #dee2e6;
+}
+
+/* 카드 변형 */
+.card-elevated {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.card-flat {
+  box-shadow: none;
+  border: 1px solid #e9ecef;
+}
+```
+
+### 5.3 입력 필드
+
+```css
+.input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  background-color: #ffffff;
+  font-size: 1rem;
+  transition: all 200ms ease-out;
+  color: #212529;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #18b4ad;
+  box-shadow: 0 0 0 3px rgba(24, 180, 173, 0.1);
+}
+
+.input:disabled {
+  background-color: #f8f9fa;
+  color: #adb5bd;
+  cursor: not-allowed;
+}
+
+.input-error {
+  border-color: #ea4335;
+}
+
+.input-error:focus {
+  border-color: #ea4335;
+  box-shadow: 0 0 0 3px rgba(234, 67, 53, 0.1);
+}
+```
+
+### 5.4 구분선
+
+```css
+/* 일반 구분선 */
+.divider {
+  height: 1px;
+  background-color: #e9ecef;
+  border: none;
+  margin: 24px 0;
+}
+
+/* 수직 구분선 */
+.divider-vertical {
+  width: 1px;
+  height: 100%;
+  background-color: #e9ecef;
+}
+```
+
+## 6. 애니메이션
+
+### 6.1 기본 원칙
+
+- **속도**: 빠르고 반응적 (200-300ms)
+- **이징**: ease-out (자연스러운 감속)
+- **강도**: 미묘하게 (과하지 않게)
+
+### 6.2 전환 설정
+
+```css
+/* 기본 전환 */
+--transition-fast: 150ms ease-out;
+--transition-normal: 200ms ease-out;
+--transition-slow: 300ms ease-out;
+
+/* 특수 이징 */
+--ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+```
+
+### 6.3 호버 효과
+
+```css
+/* 버튼 호버 */
+.hover-lift {
+  transition: transform 200ms ease-out;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+}
+
+/* 카드 호버 */
+.hover-shadow {
+  transition: box-shadow 200ms ease-out;
+}
+
+.hover-shadow:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+```
+
+## 7. 레이아웃
+
+### 7.1 컨테이너
+
+```css
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+@media (min-width: 768px) {
+  .container {
+    padding: 0 24px;
+  }
+}
+```
+
+### 7.2 그리드 시스템
+
+- 12컬럼 그리드 기반
+- 거터: 16px (모바일), 24px (데스크톱)
+
+### 7.3 브레이크포인트
+
+| 이름 | 크기   | 용도          |
+| ---- | ------ | ------------- |
+| sm   | 640px  | 모바일 가로   |
+| md   | 768px  | 태블릿        |
+| lg   | 1024px | 작은 데스크톱 |
+| xl   | 1280px | 데스크톱      |
+| 2xl  | 1536px | 대형 화면     |
+
+## 8. 아이콘
+
+### 8.1 아이콘 세트
+
+- **라이브러리**: Heroicons (outline 스타일)
+- **크기**: 16px, 20px, 24px
+- **색상**: 텍스트 색상과 동일하게 사용
+
+### 8.2 사용 가이드
+
+```tsx
+// 작은 아이콘 (인라인)
+<CheckIcon className="w-4 h-4" />
+
+// 기본 아이콘
+<CalendarIcon className="w-5 h-5" />
+
+// 큰 아이콘 (강조)
+<UserIcon className="w-6 h-6" />
+```
+
+## 9. 이미지
+
+### 9.1 비율
+
+| 용도        | 비율 | 예시          |
+| ----------- | ---- | ------------- |
+| 히어로      | 16:9 | 메인 배경     |
+| 카드 썸네일 | 4:3  | 리스트 아이템 |
+| 프로필      | 1:1  | 사용자 아바타 |
+| 갤러리      | 3:2  | 상세 페이지   |
+
+### 9.2 처리
+
+- 오버레이: 필요시 반투명 오버레이
+- 호버: 미묘한 줌 (scale 1.02, 200ms)
+- 로딩: 스켈레톤 UI 사용
+
+## 10. 반응형 가이드
+
+### 10.1 모바일 우선 원칙
+
+- 기본 스타일: 모바일
+- md: 이상에서 확장
+
+### 10.2 터치 영역
+
+- 최소 터치 영역: 44px x 44px
+- 버튼 간격: 최소 8px
+
+### 10.3 폰트 조정
+
+- 모바일에서 제목 크기 축소 (약 70-80%)
+- 본문은 가독성 유지 (14-16px)
+
+## 11. Tailwind 커스텀 설정
+
+### 11.1 tailwind.config.js
+
+```js
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  theme: {
+    extend: {
+      colors: {
+        // 배경
+        'bg-primary': '#FFFFFF',
+        'bg-secondary': '#F8F9FA',
+        'bg-tertiary': '#F5F5F5',
+        'bg-dark': '#2C3E50',
+
+        // 텍스트
+        'text-primary': '#212529',
+        'text-secondary': '#6C757D',
+        'text-tertiary': '#ADB5BD',
+        'text-inverse': '#FFFFFF',
+
+        // 액센트
+        primary: {
+          DEFAULT: '#18b4ad',
+          dark: '#0f8a85',
+          light: '#e0f7f5',
+        },
+        success: '#34A853',
+        warning: '#FBBC04',
+        error: '#EA4335',
+        info: '#18b4ad',
+
+        // 테두리
+        border: {
+          DEFAULT: '#DEE2E6',
+          light: '#E9ECEF',
+          dark: '#CED4DA',
+        },
+      },
+      fontFamily: {
+        sans: ['Pretendard', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+      },
+      borderRadius: {
+        DEFAULT: '8px',
+        lg: '12px',
+      },
+      transitionDuration: {
+        DEFAULT: '200ms',
+      },
+    },
+  },
+  plugins: [],
+};
+```
+
+## 12. 공통 컴포넌트 구조
+
+### 12.1 컴포넌트 위치
+
+```
+shared/
+└── components/
+    ├── Button/
+    │   ├── Button.tsx
+    │   ├── Button.types.ts
+    │   └── Button.stories.tsx
+    ├── Card/
+    ├── Input/
+    ├── Modal/
+    └── ...
+```
+
+### 12.2 컴포넌트 네이밍
+
+- PascalCase: `Button`, `Card`, `Input`
+- Props 인터페이스: `ButtonProps`, `CardProps`
+- 파일명: 컴포넌트명과 동일
+
+## 13. 체크리스트
+
+### 적용 시 확인사항
+
+- [ ] 색상 팔레트 일관성
+- [ ] 버튼 스타일 통일 (둥근 모서리)
+- [ ] 애니메이션 속도 (200-300ms)
+- [ ] 여백 일관성
+- [ ] 폰트 스케일 적용
+- [ ] 반응형 테스트
+- [ ] 접근성 검증
+- [ ] 컴포넌트 재사용성
