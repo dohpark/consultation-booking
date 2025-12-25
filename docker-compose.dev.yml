@@ -1,6 +1,22 @@
-version: '3.8'
-
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: consultation-booking-db-dev
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-consultation_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-consultation_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-consultation_booking_dev}
+    ports:
+      - '5433:5432' # 호스트 5433 -> 컨테이너 5432 (로컬 PostgreSQL과 충돌 방지)
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U consultation_user -d consultation_booking_dev']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   server:
     build:
       context: .
@@ -11,6 +27,8 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=3002
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-consultation_user}:${POSTGRES_PASSWORD:-consultation_pass}@postgres:5432/${POSTGRES_DB:-consultation_booking_dev}
+    # env_file은 선택사항 (.env 파일이 있으면 사용, 없으면 기본값 사용)
     env_file:
       - apps/server/.env
     volumes:
@@ -22,5 +40,11 @@ services:
       # Exclude node_modules from volume mount (use container's node_modules)
       - /app/apps/server/node_modules
       - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     command: pnpm --filter server start:dev
+
+volumes:
+  postgres_data_dev:

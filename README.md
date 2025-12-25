@@ -38,17 +38,17 @@ pnpm dev:admin
 # Applicant Frontend
 pnpm dev:applicant
 
-# Backend (로컬 실행)
+# Backend (로컬 실행 - 로컬 PostgreSQL 필요)
 pnpm dev:server
 
-# Backend (Docker 실행 - Hot Reload 지원)
+# Backend (Docker 실행 - PostgreSQL 포함, Hot Reload 지원)
 pnpm dev:server:docker
 ```
 
 **개발 시 선택:**
 
-- **로컬 실행**: `pnpm dev:server` - 빠르고 간단
-- **Docker 실행**: `pnpm dev:server:docker` - 컨테이너 환경에서 테스트
+- **로컬 실행**: `pnpm dev:server` - 로컬에 PostgreSQL 설치 필요
+- **Docker 실행**: `pnpm dev:server:docker` - PostgreSQL 포함, 컨테이너 환경에서 테스트
 
 ### 빌드
 
@@ -91,24 +91,34 @@ pnpm build:all
 - AWS S3 + CloudFront
 - AWS Secrets Manager
 
-## Docker 실행 (선택사항)
+## Docker 실행
 
-### 개발 모드
+### 개발 모드 (PostgreSQL 포함)
 
 ```bash
-# Docker로 개발 서버 실행 (Hot Reload 지원)
+# Docker로 개발 서버 실행 (PostgreSQL + Hot Reload 지원)
 pnpm dev:server:docker
 
 # 중지: Ctrl+C 또는
 docker-compose -f docker-compose.dev.yml down
+
+# 데이터베이스 데이터 삭제 (볼륨 삭제)
+docker-compose -f docker-compose.dev.yml down -v
 ```
+
+**개발 모드 특징:**
+
+- PostgreSQL 컨테이너 자동 실행
+- 서버와 DB가 같은 네트워크에서 통신
+- Hot Reload 지원
+- 데이터는 볼륨에 저장 (컨테이너 재시작해도 유지)
 
 ### 프로덕션 모드
 
 ```bash
 # 환경 변수 파일 생성
 cp apps/server/.env.example apps/server/.env
-# .env 파일을 수정하여 실제 값 입력
+# .env 파일에서 DATABASE_URL을 RDS 엔드포인트로 설정
 
 # 실행
 docker-compose up -d
@@ -119,6 +129,33 @@ docker-compose logs -f server
 # 중지
 docker-compose down
 ```
+
+**프로덕션 특징:**
+
+- AWS RDS PostgreSQL 사용 (환경 변수로 설정)
+- 프로덕션 빌드 이미지 사용
+- Health check 포함
+
+## 데이터베이스 설정
+
+### 개발 환경
+
+**Docker 사용 시:**
+
+- `docker-compose.dev.yml`에 PostgreSQL 포함
+- 자동으로 서버와 연결됨
+- 별도 설정 불필요
+
+**로컬 실행 시:**
+
+- 로컬에 PostgreSQL 설치 필요
+- `apps/server/.env`에서 `DATABASE_URL` 설정
+
+### 프로덕션 환경
+
+- AWS RDS PostgreSQL 사용
+- `DATABASE_URL` 환경 변수로 RDS 엔드포인트 설정
+- AWS Secrets Manager 또는 환경 변수로 관리
 
 ## 라이선스
 

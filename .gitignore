@@ -46,6 +46,9 @@ coverage/
 apps/server/dist/
 apps/server/.env
 
+# Docker volumes
+postgres_data_dev/
+
 # Frontend specific
 apps/admin/dist/
 apps/admin/.env.local
