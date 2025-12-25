@@ -1,6 +1,8 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, UseGuards } from '@nestjs/common';
 import { AppService } from './app.service';
 import { ApiResponse } from './common/dto/response.dto';
+import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
+import { CurrentUser, CurrentUser as CurrentUserType } from './auth/decorators/current-user.decorator';
 
 @Controller()
 export class AppController {
@@ -17,5 +19,11 @@ export class AppController {
       status: 'ok',
       timestamp: new Date().toISOString(),
     });
+  }
+
+  @Get('profile')
+  @UseGuards(JwtAuthGuard)
+  getProfile(@CurrentUser() user: CurrentUserType): ApiResponse<CurrentUserType> {
+    return ApiResponse.success(user);
   }
 }
