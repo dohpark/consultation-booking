@@ -7,6 +7,7 @@
     "dev:admin": "pnpm --filter admin dev",
     "dev:applicant": "pnpm --filter applicant dev",
     "dev:server": "pnpm --filter server start:dev",
+    "dev:server:docker": "docker-compose -f docker-compose.dev.yml up",
     "build:admin": "pnpm --filter admin build",
     "build:applicant": "pnpm --filter applicant build",
     "build:server": "pnpm --filter server build",

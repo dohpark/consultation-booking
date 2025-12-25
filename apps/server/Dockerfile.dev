@@ -1,0 +1,29 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install pnpm
+RUN npm install -g pnpm@8.15.0
+
+# Copy workspace configuration first
+COPY pnpm-workspace.yaml ./
+COPY package.json pnpm-lock.yaml* ./
+
+# Copy server package.json
+COPY apps/server/package.json ./apps/server/
+
+# Install all dependencies (including dev dependencies for hot reload)
+RUN pnpm install --frozen-lockfile
+
+# Copy source code (will be overridden by volume mount in docker-compose)
+COPY apps/server ./apps/server
+
+# Set working directory to server
+WORKDIR /app/apps/server
+
+# Expose port
+EXPOSE 3002
+
+# Start in development mode with watch
+CMD ["pnpm", "--filter", "server", "start:dev"]
+

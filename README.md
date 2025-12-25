@@ -38,9 +38,17 @@ pnpm dev:admin
 # Applicant Frontend
 pnpm dev:applicant
 
-# Backend
+# Backend (로컬 실행)
 pnpm dev:server
+
+# Backend (Docker 실행 - Hot Reload 지원)
+pnpm dev:server:docker
 ```
+
+**개발 시 선택:**
+
+- **로컬 실행**: `pnpm dev:server` - 빠르고 간단
+- **Docker 실행**: `pnpm dev:server:docker` - 컨테이너 환경에서 테스트
 
 ### 빌드
 
@@ -82,6 +90,35 @@ pnpm build:all
 - AWS RDS PostgreSQL
 - AWS S3 + CloudFront
 - AWS Secrets Manager
+
+## Docker 실행 (선택사항)
+
+### 개발 모드
+
+```bash
+# Docker로 개발 서버 실행 (Hot Reload 지원)
+pnpm dev:server:docker
+
+# 중지: Ctrl+C 또는
+docker-compose -f docker-compose.dev.yml down
+```
+
+### 프로덕션 모드
+
+```bash
+# 환경 변수 파일 생성
+cp apps/server/.env.example apps/server/.env
+# .env 파일을 수정하여 실제 값 입력
+
+# 실행
+docker-compose up -d
+
+# 로그 확인
+docker-compose logs -f server
+
+# 중지
+docker-compose down
+```
 
 ## 라이선스
 

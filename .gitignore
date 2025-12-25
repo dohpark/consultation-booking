@@ -54,4 +54,5 @@ apps/applicant/.env.local
 
 # Docker
 docker-compose.override.yml
+*.env
 
