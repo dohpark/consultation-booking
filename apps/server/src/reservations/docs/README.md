@@ -2,12 +2,14 @@
 
 ## 개요
 
-예약 생성 및 상태 전이 API입니다. 예약자가 초대 토큰을 사용하여 상담 슬롯에 예약을 생성할 수 있고, Admin은 예약 상태를 전이할 수 있습니다.
+예약 생성, 취소, 상태 전이, 조회 API입니다. 예약자가 초대 토큰을 사용하여 상담 슬롯에 예약을 생성하고 취소할 수 있고, Admin은 예약 상태를 전이하고 슬롯별 예약 내역을 조회할 수 있습니다.
 
 **핵심 기능**:
 
 - 예약 생성: 동시성 제어, 정원 제한, 중복 예약 방지를 트랜잭션으로 보장
+- 예약 취소: Token 기반 인증, email 일치 확인, `booked_count` 자동 회복
 - 상태 전이: 멱등성 보장, `booked_count` 자동 관리
+- 슬롯별 예약 조회: Admin이 슬롯 클릭 시 예약자 리스트 확인
 
 ## API 엔드포인트
 
@@ -75,6 +77,62 @@
 - `404 Not Found`: 슬롯을 찾을 수 없음
 - `409 Conflict`: 이미 예약된 이메일 (같은 slot+email 중복)
 
+### POST /api/public/reservations/:id/cancel
+
+예약 취소 API (Public 엔드포인트)
+
+**인증**: 불필요 (token 기반 인증)
+
+**Request:**
+
+```json
+{
+  "token": "a1b2c3d4e5f6..."
+}
+```
+
+**Request DTO:**
+
+- `token` (required): 초대 토큰 (InvitationsService로 검증)
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "reservation-uuid",
+    "slotId": "slot-uuid",
+    "email": "client@example.com",
+    "name": "홍길동",
+    "note": "첫 상담입니다",
+    "status": "CANCELLED",
+    "createdAt": "2025-01-10T10:00:00.000Z",
+    "updatedAt": "2025-01-10T11:00:00.000Z",
+    "cancelledAt": "2025-01-10T11:00:00.000Z"
+  },
+  "message": "예약이 취소되었습니다."
+}
+```
+
+**동작 방식:**
+
+1. Token 검증 (`InvitationsService.validateToken()`)
+2. 예약 조회
+3. Token의 `email`과 reservation의 `email` 일치 확인
+4. 상태 전이 (DEV-54 로직 재사용):
+   - `WHERE status='BOOKED'` 조건으로 멱등하게 처리
+   - UPDATE 결과가 0이면 아무것도 하지 않음 (이미 CANCELLED)
+   - UPDATE 결과가 1이면 `booked_count - 1` (슬롯 잔여 인원 회복)
+   - `cancelledAt` 자동 기록
+
+**에러 응답:**
+
+- `400 Bad Request`: 예약 취소 실패
+- `401 Unauthorized`: 유효하지 않거나 만료된 토큰
+- `403 Forbidden`: 본인의 예약이 아님 (email 불일치)
+- `404 Not Found`: 예약을 찾을 수 없음
+
 ### PATCH /api/admin/reservations/:id/status
 
 예약 상태 전이 API (Admin 전용)
@@ -140,6 +198,55 @@
 
 - `400 Bad Request`: 예약 상태 전이 실패
 - `404 Not Found`: 예약을 찾을 수 없음
+
+### GET /api/admin/slots/:id/reservations
+
+슬롯별 예약 내역 조회 API (Admin 전용)
+
+**인증**: AdminRoleGuard (JWT 인증 필요)
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "reservation-uuid-1",
+      "slotId": "slot-uuid",
+      "email": "client1@example.com",
+      "name": "홍길동",
+      "note": "첫 상담입니다",
+      "status": "BOOKED",
+      "createdAt": "2025-01-10T10:00:00.000Z",
+      "updatedAt": "2025-01-10T10:00:00.000Z",
+      "cancelledAt": null
+    },
+    {
+      "id": "reservation-uuid-2",
+      "slotId": "slot-uuid",
+      "email": "client2@example.com",
+      "name": "김철수",
+      "note": null,
+      "status": "CANCELLED",
+      "createdAt": "2025-01-10T09:00:00.000Z",
+      "updatedAt": "2025-01-10T09:30:00.000Z",
+      "cancelledAt": "2025-01-10T09:30:00.000Z"
+    }
+  ]
+}
+```
+
+**동작 방식:**
+
+1. 슬롯 조회 및 권한 확인 (슬롯의 `counselorId`와 현재 사용자의 `userId` 일치 확인)
+2. 예약 목록 조회 (생성일 기준 오름차순 정렬)
+3. DTO 변환 및 반환
+
+**에러 응답:**
+
+- `403 Forbidden`: 본인의 슬롯이 아님
+- `404 Not Found`: 슬롯을 찾을 수 없음
 
 ## 동시성 제어
 
@@ -241,6 +348,18 @@ WHERE id = $2
 - **400 Bad Request**: 예약 상태 전이 실패 (예상치 못한 에러)
 - **404 Not Found**: 예약을 찾을 수 없음
 
+### 예약 취소 에러
+
+- **400 Bad Request**: 예약 취소 실패 (예상치 못한 에러)
+- **401 Unauthorized**: 유효하지 않거나 만료된 토큰
+- **403 Forbidden**: 본인의 예약이 아님 (token의 `email`과 reservation의 `email` 불일치)
+- **404 Not Found**: 예약을 찾을 수 없음
+
+### 슬롯별 예약 조회 에러
+
+- **403 Forbidden**: 본인의 슬롯이 아님 (슬롯의 `counselorId`와 현재 사용자의 `userId` 불일치)
+- **404 Not Found**: 슬롯을 찾을 수 없음
+
 ## 데이터베이스 스키마
 
 ### Reservation 모델
@@ -304,7 +423,19 @@ reservations/
    - 예약 INSERT
    - 에러 발생 시 롤백
 
-### 2. 예약 상태 전이 (`transitionReservationStatus`)
+### 2. 예약 취소 (`cancelReservation`)
+
+**처리 순서:**
+
+1. **Token 검증**: `InvitationsService.validateToken()` 호출
+2. **예약 조회**: `reservationId`로 예약 조회
+3. **Email 일치 확인**: token의 `email`과 reservation의 `email` 일치 확인
+4. **상태 전이**: DEV-54의 `transitionReservationStatus` 로직 재사용
+   - `WHERE status='BOOKED'` 조건으로 멱등하게 처리
+   - 취소 성공 시 `booked_count - 1` (슬롯 잔여 인원 회복)
+   - `cancelledAt` 자동 기록
+
+### 3. 예약 상태 전이 (`transitionReservationStatus`)
 
 **처리 순서:**
 
@@ -316,11 +447,21 @@ reservations/
    - CANCELLED인 경우 `cancelledAt` 기록
 3. **업데이트된 예약 반환**
 
-### 3. Repository 메서드
+### 4. 슬롯별 예약 조회 (`getReservationsBySlotId`)
+
+**처리 순서:**
+
+1. **슬롯 조회**: `slotId`로 슬롯 조회
+2. **권한 확인**: 슬롯의 `counselorId`와 현재 사용자의 `userId` 일치 확인
+3. **예약 목록 조회**: 생성일 기준 오름차순 정렬
+4. **DTO 변환**: 모든 예약을 `ReservationResponseDto`로 변환
+
+### 5. Repository 메서드
 
 - `findSlotById`: 슬롯 조회 (권한 확인용)
 - `createReservationWithLock`: 트랜잭션으로 좌석 확보 + 예약 생성
 - `findById`: 예약 조회 (ID)
+- `findBySlotId`: 슬롯별 예약 목록 조회 (생성일 기준 오름차순)
 - `transitionReservationStatus`: 트랜잭션으로 상태 전이 + `booked_count` 감소
 
 ### 4. 동시성 제어 메커니즘
@@ -419,6 +560,68 @@ try {
 }
 ```
 
+### 예약 취소
+
+```typescript
+// 예약 취소 (Public API)
+const response = await fetch('http://localhost:3002/api/public/reservations/reservation-uuid/cancel', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    token: 'a1b2c3d4e5f6...', // URL에서 가져온 토큰
+  }),
+});
+
+const data = await response.json();
+if (data.success) {
+  console.log('예약 취소 성공:', data.data);
+} else {
+  console.error('예약 취소 실패:', data.error);
+}
+```
+
+### 에러 처리 예시
+
+```typescript
+try {
+  const response = await fetch('http://localhost:3002/api/public/reservations/reservation-uuid/cancel', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: 'a1b2c3d4e5f6...' }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    switch (response.status) {
+      case 400:
+        // 예약 취소 실패
+        alert('예약 취소에 실패했습니다.');
+        break;
+      case 401:
+        // 유효하지 않은 토큰
+        alert('유효하지 않은 토큰입니다.');
+        break;
+      case 403:
+        // 본인의 예약이 아님
+        alert('본인의 예약만 취소할 수 있습니다.');
+        break;
+      case 404:
+        // 예약 없음
+        alert('예약을 찾을 수 없습니다.');
+        break;
+    }
+    return;
+  }
+
+  console.log('예약 취소 성공:', data.data);
+} catch (error) {
+  console.error('네트워크 에러:', error);
+}
+```
+
 ### 예약 상태 전이
 
 ```typescript
@@ -471,6 +674,60 @@ try {
   }
 
   console.log('예약 상태 전이 성공:', data.data);
+} catch (error) {
+  console.error('네트워크 에러:', error);
+}
+```
+
+### 슬롯별 예약 조회
+
+```typescript
+// 슬롯별 예약 내역 조회 (Admin 전용)
+const response = await fetch('http://localhost:3002/api/admin/slots/slot-uuid/reservations', {
+  method: 'GET',
+  headers: {
+    'Content-Type': 'application/json',
+    // JWT 쿠키는 자동으로 전송됨 (credentials: 'include')
+  },
+  credentials: 'include',
+});
+
+const data = await response.json();
+if (data.success) {
+  console.log('예약 목록:', data.data);
+  // data.data는 ReservationResponseDto[] 배열
+} else {
+  console.error('예약 조회 실패:', data.error);
+}
+```
+
+### 에러 처리 예시
+
+```typescript
+try {
+  const response = await fetch('http://localhost:3002/api/admin/slots/slot-uuid/reservations', {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    switch (response.status) {
+      case 403:
+        // 본인의 슬롯이 아님
+        alert('본인의 슬롯만 조회할 수 있습니다.');
+        break;
+      case 404:
+        // 슬롯 없음
+        alert('슬롯을 찾을 수 없습니다.');
+        break;
+    }
+    return;
+  }
+
+  console.log('예약 목록:', data.data);
 } catch (error) {
   console.error('네트워크 에러:', error);
 }
