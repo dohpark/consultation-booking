@@ -1,5 +1,6 @@
 import { Controller, Post, Delete, Get, Body, Param, Query, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { SlotsService } from './slots.service';
+import { ReservationsService } from '../reservations/reservations.service';
 import { AdminRoleGuard } from '../auth/guards/admin-role.guard';
 import {
   CurrentUser as CurrentUserDecorator,
@@ -9,6 +10,7 @@ import { CreateSlotDto } from './dto/create-slot.dto';
 import { CreateBatchSlotsDto } from './dto/create-batch-slots.dto';
 import { ApiResponse } from '../common/dto/response.dto';
 import { SlotResponseDto } from './dto/slot-response.dto';
+import { ReservationResponseDto } from '../reservations/dto/reservation-response.dto';
 
 /**
  * Admin 전용 슬롯 관리 API
@@ -16,7 +18,10 @@ import { SlotResponseDto } from './dto/slot-response.dto';
 @Controller('admin/slots')
 @UseGuards(AdminRoleGuard)
 export class AdminSlotsController {
-  constructor(private readonly slotsService: SlotsService) {}
+  constructor(
+    private readonly slotsService: SlotsService,
+    private readonly reservationsService: ReservationsService,
+  ) {}
 
   /**
    * POST /admin/slots
@@ -57,6 +62,19 @@ export class AdminSlotsController {
     @CurrentUserDecorator() user: CurrentUserType,
   ): Promise<ApiResponse<SlotResponseDto[]>> {
     const result = await this.slotsService.getSlotsByDateRange(user.userId, from, to);
+    return ApiResponse.success(result);
+  }
+
+  /**
+   * GET /admin/slots/:id/reservations
+   * 슬롯별 예약 내역 조회
+   */
+  @Get(':id/reservations')
+  async getReservationsBySlotId(
+    @Param('id') id: string,
+    @CurrentUserDecorator() user: CurrentUserType,
+  ): Promise<ApiResponse<ReservationResponseDto[]>> {
+    const result = await this.reservationsService.getReservationsBySlotId(id, user.userId);
     return ApiResponse.success(result);
   }
 

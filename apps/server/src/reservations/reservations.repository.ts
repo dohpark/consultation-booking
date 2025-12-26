@@ -108,6 +108,18 @@ export class ReservationsRepository {
   }
 
   /**
+   * 슬롯별 예약 목록 조회
+   */
+  async findBySlotId(slotId: string): Promise<Reservation[]> {
+    return this.prisma.reservation.findMany({
+      where: { slotId },
+      orderBy: {
+        createdAt: 'asc',
+      },
+    });
+  }
+
+  /**
    * 예약 상태 전이 (멱등성 보장)
    * BOOKED → CANCELLED/COMPLETED
    * 핵심 로직:

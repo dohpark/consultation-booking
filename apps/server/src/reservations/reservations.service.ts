@@ -175,6 +175,28 @@ export class ReservationsService {
   }
 
   /**
+   * 슬롯별 예약 목록 조회 (Admin API)
+   * - 슬롯의 counselorId와 현재 사용자의 userId 일치 확인
+   */
+  async getReservationsBySlotId(slotId: string, counselorId: string): Promise<ReservationResponseDto[]> {
+    // 1. 슬롯 조회 및 권한 확인
+    const slot = await this.reservationsRepository.findSlotById(slotId);
+    if (!slot) {
+      throw new NotFoundException('슬롯을 찾을 수 없습니다.');
+    }
+
+    // 2. 권한 확인 (본인의 슬롯만 조회 가능)
+    if (slot.counselorId !== counselorId) {
+      throw new ForbiddenException('본인의 슬롯만 조회할 수 있습니다.');
+    }
+
+    // 3. 예약 목록 조회
+    const reservations = await this.reservationsRepository.findBySlotId(slotId);
+
+    return reservations.map(reservation => this.toResponseDto(reservation));
+  }
+
+  /**
    * Reservation을 ReservationResponseDto로 변환
    */
   private toResponseDto(reservation: Reservation): ReservationResponseDto {
