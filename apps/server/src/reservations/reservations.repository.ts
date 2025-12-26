@@ -106,4 +106,90 @@ export class ReservationsRepository {
       where: { id },
     });
   }
+
+  /**
+   * 예약 상태 전이 (멱등성 보장)
+   * BOOKED → CANCELLED/COMPLETED
+   * 핵심 로직:
+   * 1. WHERE status='BOOKED' 조건으로 멱등하게 처리
+   * 2. UPDATE 결과가 0이면 아무것도 안 함 (이미 CANCELLED/COMPLETED)
+   * 3. UPDATE 결과가 1이면 booked_count - 1 (방어적으로 AND booked_count > 0)
+   * 4. CANCELLED인 경우 cancelledAt 기록
+   */
+  async transitionReservationStatus(
+    reservationId: string,
+    newStatus: 'CANCELLED' | 'COMPLETED',
+  ): Promise<{ updated: boolean; reservation: Reservation | null }> {
+    return this.prisma.$transaction(
+      async tx => {
+        // 1. 예약 조회 (slotId 확인용)
+        const reservation = await tx.reservation.findUnique({
+          where: { id: reservationId },
+          select: {
+            id: true,
+            slotId: true,
+            status: true,
+          },
+        });
+
+        if (!reservation) {
+          throw new Error('RESERVATION_NOT_FOUND'); // 404
+        }
+
+        // 2. 상태 전이 (WHERE status='BOOKED' 조건으로 멱등하게 처리)
+        const updateData: {
+          status: 'CANCELLED' | 'COMPLETED';
+          cancelledAt?: Date;
+        } = {
+          status: newStatus,
+        };
+
+        // CANCELLED인 경우 cancelledAt 기록
+        if (newStatus === 'CANCELLED') {
+          updateData.cancelledAt = new Date();
+        }
+
+        const updateResult = await tx.reservation.updateMany({
+          where: {
+            id: reservationId,
+            status: 'BOOKED', // 핵심: BOOKED 상태인 것만 업데이트 (멱등성)
+          },
+          data: updateData,
+        });
+
+        // 3. UPDATE 결과가 0이면 아무것도 안 함 (이미 CANCELLED/COMPLETED)
+        if (updateResult.count === 0) {
+          // 이미 전이된 상태이므로 현재 상태 조회해서 반환
+          const currentReservation = await tx.reservation.findUnique({
+            where: { id: reservationId },
+          });
+          return {
+            updated: false,
+            reservation: currentReservation,
+          };
+        }
+
+        // 4. UPDATE 결과가 1이면 booked_count - 1 (방어적으로 AND booked_count > 0)
+        await tx.$executeRaw`
+          UPDATE slots
+          SET booked_count = booked_count - 1
+          WHERE id = ${reservation.slotId}
+            AND booked_count > 0
+        `;
+
+        // 5. 업데이트된 예약 조회
+        const updatedReservation = await tx.reservation.findUnique({
+          where: { id: reservationId },
+        });
+
+        return {
+          updated: true,
+          reservation: updatedReservation,
+        };
+      },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      },
+    );
+  }
 }

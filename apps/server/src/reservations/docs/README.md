@@ -2,9 +2,12 @@
 
 ## 개요
 
-예약 생성 API입니다. 예약자가 초대 토큰을 사용하여 상담 슬롯에 예약을 생성할 수 있습니다.
+예약 생성 및 상태 전이 API입니다. 예약자가 초대 토큰을 사용하여 상담 슬롯에 예약을 생성할 수 있고, Admin은 예약 상태를 전이할 수 있습니다.
 
-**핵심 기능**: 동시성 제어, 정원 제한, 중복 예약 방지를 트랜잭션으로 보장합니다.
+**핵심 기능**:
+
+- 예약 생성: 동시성 제어, 정원 제한, 중복 예약 방지를 트랜잭션으로 보장
+- 상태 전이: 멱등성 보장, `booked_count` 자동 관리
 
 ## API 엔드포인트
 
@@ -72,6 +75,72 @@
 - `404 Not Found`: 슬롯을 찾을 수 없음
 - `409 Conflict`: 이미 예약된 이메일 (같은 slot+email 중복)
 
+### PATCH /api/admin/reservations/:id/status
+
+예약 상태 전이 API (Admin 전용)
+
+**인증**: AdminRoleGuard (JWT 인증 필요)
+
+**Request:**
+
+```json
+{
+  "status": "CANCELLED"
+}
+```
+
+또는
+
+```json
+{
+  "status": "COMPLETED"
+}
+```
+
+**Request DTO:**
+
+- `status` (required): 전이할 상태 (`CANCELLED` 또는 `COMPLETED`)
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "reservation-uuid",
+    "slotId": "slot-uuid",
+    "email": "client@example.com",
+    "name": "홍길동",
+    "note": "첫 상담입니다",
+    "status": "CANCELLED",
+    "createdAt": "2025-01-10T10:00:00.000Z",
+    "updatedAt": "2025-01-10T11:00:00.000Z",
+    "cancelledAt": "2025-01-10T11:00:00.000Z"
+  },
+  "message": "예약 상태가 변경되었습니다."
+}
+```
+
+**동작 방식:**
+
+1. 예약 조회 (존재 여부 확인)
+2. 상태 전이 (트랜잭션):
+   - `WHERE status='BOOKED'` 조건으로 멱등하게 처리
+   - UPDATE 결과가 0이면 아무것도 하지 않음 (이미 전이됨)
+   - UPDATE 결과가 1이면 `booked_count - 1` (방어적으로 `AND booked_count > 0`)
+   - CANCELLED인 경우 `cancelledAt` 기록
+3. 업데이트된 예약 반환
+
+**멱등성 보장:**
+
+- 이미 CANCELLED/COMPLETED인 예약을 다시 호출해도 `booked_count`가 더 줄지 않음
+- 중복 호출이 있어도 안전하게 처리됨
+
+**에러 응답:**
+
+- `400 Bad Request`: 예약 상태 전이 실패
+- `404 Not Found`: 예약을 찾을 수 없음
+
 ## 동시성 제어
 
 ### 핵심 로직
@@ -104,6 +173,42 @@ WHERE id = $1
 최종 booked_count = 3 (capacity 초과 안 함) ✅
 ```
 
+### 상태 전이 시 booked_count 관리
+
+예약 상태를 `BOOKED → CANCELLED/COMPLETED`로 전이할 때 `booked_count`를 안전하게 감소시킵니다:
+
+```sql
+-- 1. 상태 전이 (멱등성 보장)
+UPDATE reservations
+SET status = 'CANCELLED', cancelled_at = NOW()
+WHERE id = $1
+  AND status = 'BOOKED';  -- 핵심: BOOKED 상태인 것만 업데이트
+
+-- 2. booked_count 감소 (방어적 처리)
+UPDATE slots
+SET booked_count = booked_count - 1
+WHERE id = $2
+  AND booked_count > 0;  -- 방어적 조건
+```
+
+**동작 원리:**
+
+1. **멱등성 보장**: `WHERE status='BOOKED'` 조건으로 이미 전이된 예약은 업데이트되지 않음
+2. **조건부 감소**: UPDATE 결과가 1일 때만 `booked_count - 1`
+3. **방어적 처리**: `booked_count > 0` 조건으로 음수 방지
+4. **트랜잭션**: 모든 작업이 하나의 트랜잭션으로 처리되어 원자성 보장
+
+**멱등성 테스트 시나리오:**
+
+```
+예약 상태: BOOKED
+1차 호출: BOOKED → CANCELLED (booked_count - 1) ✅
+2차 호출: 이미 CANCELLED (booked_count 변화 없음) ✅
+3차 호출: 이미 CANCELLED (booked_count 변화 없음) ✅
+
+최종 booked_count = 정확히 -1 (중복 감소 없음) ✅
+```
+
 ## 에러 처리
 
 ### 400 Bad Request
@@ -130,6 +235,11 @@ WHERE id = $1
 - **중복 예약**: 같은 `slotId` + `email` 조합으로 이미 예약이 존재
 - UNIQUE 제약 위반 (`uniq_reservation_slot_email`)
 - 트랜잭션 롤백으로 `booked_count` 자동 복구
+
+### 상태 전이 에러
+
+- **400 Bad Request**: 예약 상태 전이 실패 (예상치 못한 에러)
+- **404 Not Found**: 예약을 찾을 수 없음
 
 ## 데이터베이스 스키마
 
@@ -167,12 +277,13 @@ model Reservation {
 ```
 reservations/
 ├── public-reservations.controller.ts  # Public 예약 생성 API
-├── reservations.controller.ts      # Admin 예약 관리 API (향후 확장)
+├── reservations.controller.ts      # Admin 예약 관리 API (상태 전이)
 ├── reservations.service.ts         # 비즈니스 로직
 ├── reservations.repository.ts      # 데이터 접근 계층
 ├── reservations.module.ts          # 모듈 설정
 ├── dto/                            # 요청/응답 DTO
 │   ├── create-reservation.dto.ts  # 예약 생성 요청 DTO
+│   ├── transition-reservation.dto.ts # 상태 전이 요청 DTO
 │   └── reservation-response.dto.ts # 예약 응답 DTO
 └── docs/
     └── README.md                   # 이 문서
@@ -193,13 +304,26 @@ reservations/
    - 예약 INSERT
    - 에러 발생 시 롤백
 
-### 2. Repository 메서드
+### 2. 예약 상태 전이 (`transitionReservationStatus`)
+
+**처리 순서:**
+
+1. **예약 조회**: `reservationId`로 예약 조회 (존재 여부 확인)
+2. **상태 전이**: 트랜잭션으로 처리:
+   - `WHERE status='BOOKED'` 조건으로 멱등하게 처리
+   - UPDATE 결과가 0이면 아무것도 하지 않음 (이미 전이됨)
+   - UPDATE 결과가 1이면 `booked_count - 1` (방어적으로 `AND booked_count > 0`)
+   - CANCELLED인 경우 `cancelledAt` 기록
+3. **업데이트된 예약 반환**
+
+### 3. Repository 메서드
 
 - `findSlotById`: 슬롯 조회 (권한 확인용)
 - `createReservationWithLock`: 트랜잭션으로 좌석 확보 + 예약 생성
 - `findById`: 예약 조회 (ID)
+- `transitionReservationStatus`: 트랜잭션으로 상태 전이 + `booked_count` 감소
 
-### 3. 동시성 제어 메커니즘
+### 4. 동시성 제어 메커니즘
 
 **Raw SQL 사용:**
 
@@ -295,6 +419,63 @@ try {
 }
 ```
 
+### 예약 상태 전이
+
+```typescript
+// 예약 취소 (Admin 전용)
+const response = await fetch('http://localhost:3002/api/admin/reservations/reservation-uuid/status', {
+  method: 'PATCH',
+  headers: {
+    'Content-Type': 'application/json',
+    // JWT 쿠키는 자동으로 전송됨 (credentials: 'include')
+  },
+  credentials: 'include',
+  body: JSON.stringify({
+    status: 'CANCELLED', // 또는 'COMPLETED'
+  }),
+});
+
+const data = await response.json();
+if (data.success) {
+  console.log('예약 상태 전이 성공:', data.data);
+} else {
+  console.error('예약 상태 전이 실패:', data.error);
+}
+```
+
+### 에러 처리 예시
+
+```typescript
+try {
+  const response = await fetch('http://localhost:3002/api/admin/reservations/reservation-uuid/status', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ status: 'CANCELLED' }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    switch (response.status) {
+      case 400:
+        // 예약 상태 전이 실패
+        alert('예약 상태 전이에 실패했습니다.');
+        break;
+      case 404:
+        // 예약 없음
+        alert('예약을 찾을 수 없습니다.');
+        break;
+    }
+    return;
+  }
+
+  console.log('예약 상태 전이 성공:', data.data);
+} catch (error) {
+  console.error('네트워크 에러:', error);
+}
+```
+
 ## 보안 고려사항
 
 1. **Token 기반 인증**: 초대 토큰으로만 예약 가능
@@ -312,9 +493,9 @@ try {
 
 ## 향후 확장 가능성
 
-1. **예약 취소 API**: `POST /api/public/reservations/:id/cancel`
+1. **Public 예약 취소 API**: `POST /api/public/reservations/:id/cancel` (token 기반)
 2. **예약 조회 API**: `GET /api/public/reservations?token=...`
 3. **예약 수정**: 현재는 삭제 후 재생성 방식
 4. **예약 알림**: 예약 생성 시 이메일/SMS 알림
 5. **대기열 시스템**: 가득 찬 슬롯에 대기 예약 기능
-
+6. **상태 전이 히스토리**: 예약 상태 변경 이력 추적

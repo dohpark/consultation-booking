@@ -9,6 +9,7 @@ import {
 import { ReservationsRepository } from './reservations.repository';
 import { InvitationsService } from '../invitations/invitations.service';
 import { CreateReservationDto } from './dto/create-reservation.dto';
+import { TransitionReservationDto } from './dto/transition-reservation.dto';
 import { ReservationResponseDto } from './dto/reservation-response.dto';
 import { Reservation } from '@prisma/client';
 import { ValidateTokenResponseDto } from '../invitations/dto/validate-token-response.dto';
@@ -74,6 +75,41 @@ export class ReservationsService {
             throw new ConflictException('이미 예약된 이메일입니다.');
           default:
             throw new BadRequestException('예약 생성에 실패했습니다.');
+        }
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * 예약 상태 전이 (멱등성 보장)
+   * BOOKED → CANCELLED/COMPLETED
+   * - WHERE status='BOOKED' 조건으로 멱등하게 처리
+   * - UPDATE 결과가 0이면 아무것도 안 함 (이미 전이됨)
+   * - UPDATE 결과가 1이면 booked_count - 1
+   */
+  async transitionReservationStatus(
+    reservationId: string,
+    dto: TransitionReservationDto,
+  ): Promise<ReservationResponseDto> {
+    try {
+      const result = await this.reservationsRepository.transitionReservationStatus(reservationId, dto.status);
+
+      if (!result.reservation) {
+        throw new NotFoundException('예약을 찾을 수 없습니다.');
+      }
+
+      return this.toResponseDto(result.reservation);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      if (error instanceof Error) {
+        switch (error.message) {
+          case 'RESERVATION_NOT_FOUND':
+            throw new NotFoundException('예약을 찾을 수 없습니다.');
+          default:
+            throw new BadRequestException('예약 상태 전이에 실패했습니다.');
         }
       }
       throw error;
