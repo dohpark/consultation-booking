@@ -1,6 +1,44 @@
-import { Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Plus } from 'lucide-react';
+import type FullCalendar from '@fullcalendar/react';
+import { useSlots } from '../domains/slots/hooks/useSlots';
+import { useCalendarNavigation } from '../domains/slots/hooks/useCalendarNavigation';
+import { CalendarHeader } from '../domains/slots/components/CalendarHeader';
+import { CalendarMonthView } from '../domains/slots/components/CalendarMonthView';
+import type { Slot } from '../domains/slots/types';
 
 const Dashboard = () => {
+  const { slots, isLoading, addSlot } = useSlots();
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const calendarRef = useRef<FullCalendar>(null);
+  const { handlePrev, handleNext, handleToday } = useCalendarNavigation(calendarRef);
+
+  // 날짜 선택 핸들러 (슬롯 생성)
+  const handleDateSelect = (start: Date) => {
+    const roundedEnd = new Date(start);
+    roundedEnd.setMinutes(roundedEnd.getMinutes() + 30);
+
+    // TODO: API 연동 후 활성화
+    // 임시: 더미 슬롯 추가 (로컬 상태만 업데이트)
+    const newSlot: Slot = {
+      id: `temp-${Date.now()}`,
+      counselorId: 'temp',
+      startAt: start.toISOString(),
+      endAt: roundedEnd.toISOString(),
+      capacity: 3,
+      bookedCount: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    addSlot(newSlot);
+  };
+
+  // 날짜 클릭 핸들러
+  const handleDateClick = (date: Date) => {
+    console.log('Date clicked:', date);
+    // TODO: 중앙 모달 오픈 (TASK-03에서 구현)
+  };
+
   return (
     <div className="space-y-6">
       {/* Header Section */}
@@ -15,64 +53,20 @@ const Dashboard = () => {
         </button>
       </div>
 
-      {/* Calendar Placeholder */}
+      {/* Calendar */}
       <div className="card min-h-[600px] flex flex-col">
-        {/* Calendar Header */}
-        <div className="flex items-center justify-between mb-8 pb-6 border-b border-border">
-          <div className="flex items-center gap-4">
-            <h2 className="text-xl font-bold text-text-primary">2025년 12월</h2>
-            <div className="flex items-center bg-bg-secondary rounded-lg border border-border overflow-hidden">
-              <button className="p-2 hover:bg-bg-tertiary transition-colors border-r border-border">
-                <ChevronLeft size={20} />
-              </button>
-              <button className="px-4 py-2 text-sm font-medium hover:bg-bg-tertiary transition-colors border-r border-border">
-                오늘
-              </button>
-              <button className="p-2 hover:bg-bg-tertiary transition-colors">
-                <ChevronRight size={20} />
-              </button>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 bg-bg-secondary p-1 rounded-lg border border-border">
-            <button className="px-4 py-1.5 text-sm font-medium bg-white rounded shadow-sm text-primary">월</button>
-            <button className="px-4 py-1.5 text-sm font-medium text-text-secondary hover:text-text-primary">주</button>
-            <button className="px-4 py-1.5 text-sm font-medium text-text-secondary hover:text-text-primary">일</button>
-          </div>
-        </div>
-
-        {/* Calendar Grid Placeholder */}
-        <div className="flex-1 flex flex-col items-center justify-center text-text-tertiary space-y-4">
-          <div className="w-24 h-24 rounded-full bg-bg-secondary flex items-center justify-center">
-            <Calendar size={48} className="text-text-tertiary/50" />
-          </div>
-          <p className="text-lg font-medium">달력 기능은 곧 구현될 예정입니다.</p>
-          <p className="text-sm">FullCalendar 또는 자체 구현 달력이 이곳에 위치합니다.</p>
-        </div>
+        <CalendarHeader currentDate={currentDate} onPrev={handlePrev} onNext={handleNext} onToday={handleToday} />
+        <CalendarMonthView
+          calendarRef={calendarRef}
+          slots={slots}
+          isLoading={isLoading}
+          onDateSelect={handleDateSelect}
+          onDateClick={handleDateClick}
+          onNavigationChange={setCurrentDate}
+        />
       </div>
     </div>
   );
 };
-
-// Simple Calendar icon for the placeholder
-const Calendar = ({ size, className }: { size: number; className?: string }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-  >
-    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-    <line x1="16" y1="2" x2="16" y2="6"></line>
-    <line x1="8" y1="2" x2="8" y2="6"></line>
-    <line x1="3" y1="10" x2="21" y2="10"></line>
-  </svg>
-);
 
 export default Dashboard;
