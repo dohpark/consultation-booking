@@ -9,6 +9,7 @@ import {
 import { ReservationsRepository } from './reservations.repository';
 import { InvitationsService } from '../invitations/invitations.service';
 import { CreateReservationDto } from './dto/create-reservation.dto';
+import { CancelReservationDto } from './dto/cancel-reservation.dto';
 import { TransitionReservationDto } from './dto/transition-reservation.dto';
 import { ReservationResponseDto } from './dto/reservation-response.dto';
 import { Reservation } from '@prisma/client';
@@ -75,6 +76,63 @@ export class ReservationsService {
             throw new ConflictException('이미 예약된 이메일입니다.');
           default:
             throw new BadRequestException('예약 생성에 실패했습니다.');
+        }
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * 예약 취소 (Public API)
+   * token 기반으로 "내 예약 취소" 제공
+   * - token이 유효하고, reservation의 email과 일치해야만 취소 가능
+   * - 취소 성공 시 슬롯 잔여 인원 회복 (DEV-54 로직 사용)
+   */
+  async cancelReservation(reservationId: string, dto: CancelReservationDto): Promise<ReservationResponseDto> {
+    // 1. Token 검증
+    let tokenInfo: ValidateTokenResponseDto;
+    try {
+      tokenInfo = await this.invitationsService.validateToken(dto.token);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw new UnauthorizedException('유효하지 않거나 만료된 토큰입니다.');
+      }
+      throw error;
+    }
+
+    // 2. 예약 조회
+    const reservation = await this.reservationsRepository.findById(reservationId);
+    if (!reservation) {
+      throw new NotFoundException('예약을 찾을 수 없습니다.');
+    }
+
+    // 3. token의 email과 reservation의 email 일치 확인
+    const tokenEmail: string = tokenInfo.email.toLowerCase().trim();
+    const reservationEmail: string = reservation.email.toLowerCase().trim();
+
+    if (tokenEmail !== reservationEmail) {
+      throw new ForbiddenException('본인의 예약만 취소할 수 있습니다.');
+    }
+
+    // 4. 상태 전이 (DEV-54 로직 재사용)
+    try {
+      const result = await this.reservationsRepository.transitionReservationStatus(reservationId, 'CANCELLED');
+
+      if (!result.reservation) {
+        throw new NotFoundException('예약을 찾을 수 없습니다.');
+      }
+
+      return this.toResponseDto(result.reservation);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      if (error instanceof Error) {
+        switch (error.message) {
+          case 'RESERVATION_NOT_FOUND':
+            throw new NotFoundException('예약을 찾을 수 없습니다.');
+          default:
+            throw new BadRequestException('예약 취소에 실패했습니다.');
         }
       }
       throw error;
