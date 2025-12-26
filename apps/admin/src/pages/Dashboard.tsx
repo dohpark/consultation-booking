@@ -6,11 +6,14 @@ import { useCalendarNavigation } from '../domains/slots/hooks/useCalendarNavigat
 import { useCalendarMode } from '../domains/slots/hooks/useCalendarMode';
 import { CalendarHeader } from '../domains/slots/components/CalendarHeader';
 import { CalendarMonthView } from '../domains/slots/components/CalendarMonthView';
+import { DateDetailModal } from '../domains/slots/components/DateDetailModal';
 import type { Slot } from '../domains/slots/types';
 
 const Dashboard = () => {
   const { slots, isLoading, addSlot } = useSlots();
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const calendarRef = useRef<FullCalendar>(null);
   const { handlePrev, handleNext, handleToday } = useCalendarNavigation(calendarRef);
   const { mode, toggleViewReservations, toggleEditSlots } = useCalendarMode();
@@ -37,8 +40,14 @@ const Dashboard = () => {
 
   // 날짜 클릭 핸들러
   const handleDateClick = (date: Date) => {
-    console.log('Date clicked:', date);
-    // TODO: 중앙 모달 오픈 (TASK-03에서 구현)
+    setSelectedDate(date);
+    setIsModalOpen(true);
+  };
+
+  // 모달 닫기 핸들러
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedDate(null);
   };
 
   return (
@@ -76,6 +85,12 @@ const Dashboard = () => {
           onNavigationChange={setCurrentDate}
         />
       </div>
+
+      {/* Date Detail Modal */}
+      <DateDetailModal isOpen={isModalOpen} onClose={handleCloseModal} selectedDate={selectedDate}>
+        {/* TODO: 모드별 컨텐츠 구현 (DEV-63, DEV-64) */}
+        <div className="text-text-secondary">모달 컨텐츠가 여기에 표시됩니다.</div>
+      </DateDetailModal>
     </div>
   );
 };
