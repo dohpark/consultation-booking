@@ -66,11 +66,15 @@ export function CalendarMonthView({
 
       if (!dayEventsEl) return;
 
-      // 기존에 렌더링된 내용이 있으면 제거
-      const existingRoot = dayEventRootsRef.current.get(dateKey);
-      if (existingRoot) {
-        existingRoot.unmount();
+      // 기존에 렌더링된 내용이 있으면 제거 (비동기로 처리하여 렌더링 사이클과 충돌 방지)
+      const oldRoot = dayEventRootsRef.current.get(dateKey);
+      if (oldRoot) {
+        // map에서 즉시 제거하여 새 root 추가 가능하도록 함
         dayEventRootsRef.current.delete(dateKey);
+        // 다음 이벤트 루프에서 unmount하여 렌더링 사이클과 충돌 방지
+        setTimeout(() => {
+          oldRoot.unmount();
+        }, 0);
       }
 
       // 기존 컨테이너 제거
@@ -96,8 +100,11 @@ export function CalendarMonthView({
     const dateKey = format(arg.date, 'yyyy-MM-dd');
     const root = dayEventRootsRef.current.get(dateKey);
     if (root) {
-      root.unmount();
-      dayEventRootsRef.current.delete(dateKey);
+      // 다음 이벤트 루프에서 unmount하여 렌더링 사이클과 충돌 방지
+      setTimeout(() => {
+        root.unmount();
+        dayEventRootsRef.current.delete(dateKey);
+      }, 0);
     }
   }, []);
 
