@@ -6,7 +6,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import koLocale from '@fullcalendar/core/locales/ko';
 import type { DateSelectArg, DayCellContentArg, DayCellMountArg } from '@fullcalendar/core';
-import { format } from 'date-fns';
+import { format, isSameDay } from 'date-fns';
 import { groupSlotsByDate } from '../utils/groupSlotsByDate';
 import { TimeRangeSummary } from './TimeRangeSummary';
 import type { Slot, CalendarMode } from '../types';
@@ -17,6 +17,7 @@ interface CalendarMonthViewProps {
   mode?: CalendarMode;
   onDateSelect?: (start: Date) => void;
   onDateClick?: (date: Date) => void;
+  onDateRangeSelect?: (start: Date, end: Date) => void;
   onNavigationChange?: (date: Date) => void;
   calendarRef?: React.RefObject<FullCalendar | null>;
 }
@@ -24,9 +25,10 @@ interface CalendarMonthViewProps {
 export function CalendarMonthView({
   slots,
   isLoading = false,
-  mode = 'viewReservations', // TODO: 모드별 동작 구현 (DEV-62, DEV-63)
+  mode = 'viewReservations',
   onDateSelect,
   onDateClick,
+  onDateRangeSelect,
   onNavigationChange,
   calendarRef: externalRef,
 }: CalendarMonthViewProps) {
@@ -34,11 +36,8 @@ export function CalendarMonthView({
   const calendarRef = externalRef || internalRef;
   const dayEventRootsRef = useRef<Map<string, Root>>(new Map());
 
-  // mode는 향후 모드별 동작 구현 시 사용 예정
-  void mode;
-
-  // 모든 모드에서 드래그 비활성화 (슬롯 추가는 모달 내에서만 가능)
-  const isSelectable = false;
+  // 예약 시간 수정 모드에서만 드래그 가능
+  const isEditSlotsMode = mode === 'editSlots';
 
   // 날짜별로 슬롯 그룹화
   const slotsByDate = useMemo(() => groupSlotsByDate(slots), [slots]);
@@ -102,21 +101,38 @@ export function CalendarMonthView({
     }
   }, []);
 
-  // 날짜 선택 핸들러 (슬롯 생성)
+  // 날짜 선택 핸들러 (드래그 범위 선택 또는 단일 날짜 선택)
   const handleDateSelect = useCallback(
     (selectInfo: DateSelectArg) => {
-      const { start } = selectInfo;
+      const { start, end } = selectInfo;
 
-      // 30분 단위로 정렬
-      const startMinutes = start.getMinutes();
-      const roundedStartMinutes = startMinutes < 30 ? 0 : 30;
-      const roundedStart = new Date(start);
-      roundedStart.setMinutes(roundedStartMinutes, 0, 0);
+      if (isEditSlotsMode && onDateRangeSelect) {
+        // 예약 시간 수정 모드: 날짜 범위 선택
+        // end는 exclusive이므로 하루 전날로 조정
+        const endDate = new Date(end);
+        endDate.setDate(endDate.getDate() - 1);
 
-      onDateSelect?.(roundedStart);
-      selectInfo.view.calendar.unselect();
+        // 단일 날짜 클릭인지 확인 (시작 날짜와 종료 날짜가 같은 날인지)
+        if (isSameDay(start, endDate)) {
+          // 단일 날짜 클릭은 dateClick 핸들러가 처리하도록 무시
+          selectInfo.view.calendar.unselect();
+          return;
+        }
+
+        // 실제 드래그 선택인 경우에만 날짜 범위 선택 처리
+        onDateRangeSelect(start, endDate);
+        selectInfo.view.calendar.unselect();
+      } else if (onDateSelect) {
+        // 기존 동작: 단일 날짜 선택 (30분 단위로 정렬)
+        const startMinutes = start.getMinutes();
+        const roundedStartMinutes = startMinutes < 30 ? 0 : 30;
+        const roundedStart = new Date(start);
+        roundedStart.setMinutes(roundedStartMinutes, 0, 0);
+        onDateSelect(roundedStart);
+        selectInfo.view.calendar.unselect();
+      }
     },
-    [onDateSelect],
+    [isEditSlotsMode, onDateSelect, onDateRangeSelect],
   );
 
   // 날짜 클릭 핸들러
@@ -151,8 +167,8 @@ export function CalendarMonthView({
           initialView="dayGridMonth"
           headerToolbar={false}
           locale={koLocale}
-          selectable={isSelectable} // 모든 모드에서 드래그 비활성화 (슬롯 추가는 모달 내에서만)
-          selectMirror={isSelectable}
+          selectable={isEditSlotsMode} // 예약 시간 수정 모드에서만 드래그 가능
+          selectMirror={isEditSlotsMode} // 드래그 시 하이라이트 표시
           weekends={true}
           select={handleDateSelect}
           dateClick={handleDateClick}

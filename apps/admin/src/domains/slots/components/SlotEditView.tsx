@@ -6,6 +6,7 @@ import type { Slot, Reservation } from '../types';
 
 interface SlotEditViewProps {
   selectedDate: Date;
+  selectedDateRange?: { start: Date; end: Date };
   slots: Slot[];
   reservations: Reservation[];
   onConfirm?: (addedSlots: Array<{ startAt: Date; endAt: Date }>, deletedSlotIds: string[]) => void;
@@ -22,13 +23,7 @@ const generateTimeSlots = (date: Date): Date[] => {
   return slots;
 };
 
-export function SlotEditView({
-  selectedDate,
-  slots,
-  reservations,
-  onConfirm,
-  onCancel,
-}: SlotEditViewProps) {
+export function SlotEditView({ selectedDate, slots, reservations, onConfirm, onCancel }: SlotEditViewProps) {
   const dateKey = format(selectedDate, 'yyyy-MM-dd');
   const daySlots = slots.filter(slot => {
     const slotDate = format(parseISO(slot.startAt), 'yyyy-MM-dd');
@@ -36,14 +31,10 @@ export function SlotEditView({
   });
 
   // 임시 변경사항 관리
+  // selectedDate나 selectedDateRange가 변경되면 컴포넌트가 리마운트되므로
+  // 상태가 자동으로 초기화됨 (key prop 사용)
   const [pendingAddedSlots, setPendingAddedSlots] = useState<Set<string>>(new Set());
   const [pendingDeletedSlotIds, setPendingDeletedSlotIds] = useState<Set<string>>(new Set());
-
-  // selectedDate가 변경되면 임시 변경사항 초기화
-  useEffect(() => {
-    setPendingAddedSlots(new Set());
-    setPendingDeletedSlotIds(new Set());
-  }, [selectedDate]);
 
   // 컴포넌트 언마운트 시 취소 처리 (모달 닫기 시)
   useEffect(() => {
@@ -84,9 +75,7 @@ export function SlotEditView({
 
   // 슬롯에 예약이 있는지 확인
   const hasReservations = (slot: Slot): boolean => {
-    return reservations.some(
-      reservation => reservation.slotId === slot.id && reservation.status === 'BOOKED',
-    );
+    return reservations.some(reservation => reservation.slotId === slot.id && reservation.status === 'BOOKED');
   };
 
   // 슬롯이 잠겨있는지 확인 (예약이 있으면 잠금)
@@ -95,7 +84,7 @@ export function SlotEditView({
   };
 
   // 슬롯 추가 핸들러 (임시 상태에만 반영)
-  const handleAddSlot = (time: Date, nextTime: Date) => {
+  const handleAddSlot = (time: Date) => {
     const timeKey = format(time, 'HH:mm');
     setPendingAddedSlots(prev => new Set(prev).add(timeKey));
     // 추가 예정이었던 슬롯의 삭제 예정을 취소
@@ -225,13 +214,11 @@ export function SlotEditView({
                         <Trash2 size={18} />
                       </button>
                     )}
-                    {locked && (
-                      <div className="text-xs text-text-tertiary px-2">예약 있음</div>
-                    )}
+                    {locked && <div className="text-xs text-text-tertiary px-2">예약 있음</div>}
                   </>
                 ) : (
                   <button
-                    onClick={() => handleAddSlot(time, nextTime)}
+                    onClick={() => handleAddSlot(time)}
                     className="px-3 py-1.5 text-sm text-primary hover:bg-primary-light rounded transition-colors"
                   >
                     슬롯 추가
@@ -255,4 +242,3 @@ export function SlotEditView({
     </div>
   );
 }
-

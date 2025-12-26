@@ -7,11 +7,18 @@ interface DateDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   selectedDate: Date | null;
+  selectedDateRange?: { start: Date; end: Date } | null;
   children?: React.ReactNode;
 }
 
-export function DateDetailModal({ isOpen, onClose, selectedDate, children }: DateDetailModalProps) {
-  const dateTitle = selectedDate ? format(selectedDate, 'yyyy년 M월 d일 (EEE)', { locale: ko }) : '';
+export function DateDetailModal({ isOpen, onClose, selectedDate, selectedDateRange, children }: DateDetailModalProps) {
+  const dateTitle = selectedDate
+    ? selectedDateRange &&
+      format(selectedDateRange.start, 'yyyy년 M월 d일 (EEE)', { locale: ko }) !==
+        format(selectedDateRange.end, 'yyyy년 M월 d일 (EEE)', { locale: ko })
+      ? `${format(selectedDateRange.start, 'yyyy년 M월 d일 (EEE)', { locale: ko })} ~ ${format(selectedDateRange.end, 'yyyy년 M월 d일 (EEE)', { locale: ko })}`
+      : format(selectedDate, 'yyyy년 M월 d일 (EEE)', { locale: ko })
+    : '';
 
   return (
     <Dialog open={isOpen} onClose={onClose} className="relative z-50">

@@ -8,6 +8,7 @@ import { useCalendarMode } from '../domains/slots/hooks/useCalendarMode';
 import { CalendarHeader } from '../domains/slots/components/CalendarHeader';
 import { CalendarMonthView } from '../domains/slots/components/CalendarMonthView';
 import { DateDetailModal } from '../domains/slots/components/DateDetailModal';
+import { DateRangeConfirmModal } from '../domains/slots/components/DateRangeConfirmModal';
 import { ReservationView } from '../domains/slots/components/ReservationView';
 import { SlotEditView } from '../domains/slots/components/SlotEditView';
 import type { Slot } from '../domains/slots/types';
@@ -18,6 +19,8 @@ const Dashboard = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [isDateRangeModalOpen, setIsDateRangeModalOpen] = useState(false);
+  const [selectedDateRange, setSelectedDateRange] = useState<{ start: Date; end: Date } | null>(null);
   const calendarRef = useRef<FullCalendar>(null);
   const { handlePrev, handleNext, handleToday } = useCalendarNavigation(calendarRef);
   const { mode, toggleViewReservations, toggleEditSlots } = useCalendarMode();
@@ -48,11 +51,27 @@ const Dashboard = () => {
     setIsModalOpen(true);
   };
 
+  // 날짜 범위 선택 핸들러 (드래그 선택)
+  const handleDateRangeSelect = (start: Date, end: Date) => {
+    setSelectedDateRange({ start, end });
+    setIsDateRangeModalOpen(true);
+  };
+
+  // 날짜 범위 확인 핸들러
+  const handleConfirmDateRange = (startDate: Date, endDate: Date) => {
+    // 날짜 범위를 상태에 저장하고 모달 열기
+    setSelectedDateRange({ start: startDate, end: endDate });
+    setSelectedDate(startDate);
+    setIsDateRangeModalOpen(false);
+    setIsModalOpen(true);
+  };
+
   // 모달 닫기 핸들러 (취소 동작)
   const handleCloseModal = () => {
     // 모달 닫기 시 임시 변경사항은 자동으로 취소됨 (SlotEditView의 cleanup)
     setIsModalOpen(false);
     setSelectedDate(null);
+    setSelectedDateRange(null);
   };
 
   // 슬롯 변경사항 확인 핸들러 (예약 시간 수정 모드용)
@@ -113,12 +132,18 @@ const Dashboard = () => {
           mode={mode}
           onDateSelect={handleDateSelect}
           onDateClick={handleDateClick}
+          onDateRangeSelect={handleDateRangeSelect}
           onNavigationChange={setCurrentDate}
         />
       </div>
 
       {/* Date Detail Modal */}
-      <DateDetailModal isOpen={isModalOpen} onClose={handleCloseModal} selectedDate={selectedDate}>
+      <DateDetailModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        selectedDate={selectedDate}
+        selectedDateRange={selectedDateRange}
+      >
         {mode === 'viewReservations' && selectedDate ? (
           <ReservationView
             selectedDate={selectedDate}
@@ -129,7 +154,9 @@ const Dashboard = () => {
           />
         ) : mode === 'editSlots' && selectedDate ? (
           <SlotEditView
+            key={`${selectedDate.toISOString()}-${selectedDateRange ? `${selectedDateRange.start.toISOString()}-${selectedDateRange.end.toISOString()}` : 'single'}`}
             selectedDate={selectedDate}
+            selectedDateRange={selectedDateRange || undefined}
             slots={slots}
             reservations={reservations}
             onConfirm={handleConfirmSlotChanges}
@@ -137,6 +164,20 @@ const Dashboard = () => {
           />
         ) : null}
       </DateDetailModal>
+
+      {/* Date Range Confirm Modal */}
+      {selectedDateRange && (
+        <DateRangeConfirmModal
+          isOpen={isDateRangeModalOpen}
+          onClose={() => {
+            setIsDateRangeModalOpen(false);
+            setSelectedDateRange(null);
+          }}
+          startDate={selectedDateRange.start}
+          endDate={selectedDateRange.end}
+          onConfirm={handleConfirmDateRange}
+        />
+      )}
     </div>
   );
 };
