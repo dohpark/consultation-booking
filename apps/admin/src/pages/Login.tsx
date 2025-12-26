@@ -1,7 +1,29 @@
-const Login = () => {
-  const handleGoogleLogin = () => {
-    // This will be implemented with real Google OAuth later
-    console.log('Google Login Clicked');
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../domains/auth/hooks/useAuth';
+import { GoogleSignInButton } from '../domains/auth/components/GoogleSignInButton';
+import { loginWithGoogle, fetchUserProfile } from '../domains/auth/services/authService';
+
+export default function Login() {
+  const navigate = useNavigate();
+  const { login, isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
+
+  const handleLoginSuccess = async (idToken: string) => {
+    await loginWithGoogle(idToken);
+    const userProfile = await fetchUserProfile();
+    login(userProfile);
+    navigate('/dashboard', { replace: true });
+  };
+
+  const handleLoginError = (error: Error) => {
+    console.error('Login error:', error);
+    alert(error.message || '로그인에 실패했습니다. 다시 시도해주세요.');
   };
 
   return (
@@ -13,13 +35,7 @@ const Login = () => {
         </div>
 
         <div className="space-y-4">
-          <button
-            onClick={handleGoogleLogin}
-            className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-white border-2 border-border rounded-xl font-semibold text-text-primary hover:bg-bg-secondary hover:border-border-dark transition-all duration-200 shadow-sm"
-          >
-            <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
-            <span>Google 계정으로 로그인</span>
-          </button>
+          <GoogleSignInButton onSuccess={handleLoginSuccess} onError={handleLoginError} />
         </div>
 
         <div className="relative">
@@ -37,6 +53,4 @@ const Login = () => {
       </div>
     </div>
   );
-};
-
-export default Login;
+}

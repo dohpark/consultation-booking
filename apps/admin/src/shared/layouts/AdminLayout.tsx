@@ -1,24 +1,34 @@
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { Calendar, Users, Settings, LogOut, Menu } from 'lucide-react';
 import { useState } from 'react';
 import { clsx } from 'clsx';
+import { useAuth } from '../../domains/auth/hooks/useAuth';
 
-const AdminLayout = () => {
+const MENU_ITEMS = [
+  { name: '대시보드', path: '/dashboard', icon: Calendar },
+  { name: '초대 링크 관리', path: '/invitations', icon: Users },
+  { name: '설정', path: '/settings', icon: Settings },
+] as const;
+
+export function AdminLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
-  const menuItems = [
-    { name: '대시보드', path: '/dashboard', icon: Calendar },
-    { name: '초대 링크 관리', path: '/invitations', icon: Users },
-    { name: '설정', path: '/settings', icon: Settings },
-  ];
+  const handleLogout = () => {
+    logout();
+    navigate('/login', { replace: true });
+  };
+
+  const handleSidebarClose = () => {
+    setIsSidebarOpen(false);
+  };
 
   return (
     <div className="min-h-screen bg-bg-secondary flex">
       {/* Mobile Sidebar Overlay */}
-      {isSidebarOpen && (
-        <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)} />
-      )}
+      {isSidebarOpen && <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={handleSidebarClose} />}
 
       {/* Sidebar */}
       <aside
@@ -35,7 +45,7 @@ const AdminLayout = () => {
 
           {/* Navigation */}
           <nav className="flex-1 py-6 px-4 space-y-1">
-            {menuItems.map(item => {
+            {MENU_ITEMS.map(item => {
               const isActive = location.pathname === item.path;
               return (
                 <Link
@@ -47,7 +57,7 @@ const AdminLayout = () => {
                       ? 'bg-primary-light text-primary'
                       : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary',
                   )}
-                  onClick={() => setIsSidebarOpen(false)}
+                  onClick={handleSidebarClose}
                 >
                   <item.icon size={20} />
                   <span>{item.name}</span>
@@ -58,7 +68,10 @@ const AdminLayout = () => {
 
           {/* Logout */}
           <div className="p-4 border-t border-border">
-            <button className="flex items-center gap-3 w-full px-4 py-3 text-text-secondary hover:text-error hover:bg-red-50 rounded-lg transition-colors font-medium">
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-3 w-full px-4 py-3 text-text-secondary hover:text-error hover:bg-red-50 rounded-lg transition-colors font-medium"
+            >
               <LogOut size={20} />
               <span>로그아웃</span>
             </button>
@@ -78,11 +91,11 @@ const AdminLayout = () => {
 
           <div className="flex items-center gap-4">
             <div className="text-right hidden sm:block">
-              <p className="text-sm font-semibold text-text-primary">관리자님</p>
-              <p className="text-xs text-text-secondary">admin@example.com</p>
+              <p className="text-sm font-semibold text-text-primary">{user?.name || '관리자님'}</p>
+              <p className="text-xs text-text-secondary">{user?.email || ''}</p>
             </div>
             <div className="w-10 h-10 rounded-full bg-primary-light flex items-center justify-center text-primary font-bold">
-              관
+              {user?.name?.[0] || '관'}
             </div>
           </div>
         </header>
@@ -96,6 +109,4 @@ const AdminLayout = () => {
       </div>
     </div>
   );
-};
-
-export default AdminLayout;
+}

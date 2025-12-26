@@ -9,11 +9,15 @@ RUN npm install -g pnpm@8.15.0
 COPY pnpm-workspace.yaml ./
 COPY package.json pnpm-lock.yaml* ./
 
-# Copy server package.json
+# Copy all package.json files for monorepo
 COPY apps/server/package.json ./apps/server/
 
 # Install all dependencies (including dev dependencies for hot reload)
+# Use --filter to install only server dependencies, but install workspace deps too
 RUN pnpm install --frozen-lockfile
+
+# Verify installations
+RUN pnpm --filter server list || pnpm install --frozen-lockfile
 
 # Copy source code (will be overridden by volume mount in docker-compose)
 COPY apps/server ./apps/server
