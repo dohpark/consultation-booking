@@ -34,6 +34,7 @@ services:
     volumes:
       # Mount source code for hot reload
       - ./apps/server/src:/app/apps/server/src
+      - ./apps/server/prisma:/app/apps/server/prisma
       - ./apps/server/tsconfig.json:/app/apps/server/tsconfig.json
       - ./apps/server/tsconfig.build.json:/app/apps/server/tsconfig.build.json
       - ./apps/server/nest-cli.json:/app/apps/server/nest-cli.json
@@ -44,7 +45,7 @@ services:
       postgres:
         condition: service_healthy
     restart: unless-stopped
-    command: pnpm --filter server start:dev
+    command: sh -c "cd /app/apps/server && pnpm prisma generate && pnpm start:dev"
 
 volumes:
   postgres_data_dev:

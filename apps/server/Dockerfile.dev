@@ -25,6 +25,9 @@ COPY apps/server ./apps/server
 # Set working directory to server
 WORKDIR /app/apps/server
 
+# Copy Prisma schema (needed for generate)
+COPY apps/server/prisma ./prisma
+
 # Expose port
 EXPOSE 3002
 

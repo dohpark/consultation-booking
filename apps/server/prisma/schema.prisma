@@ -1,0 +1,123 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 상담사(관리자) 테이블
+model Counselor {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  googleSub String   @unique @map("google_sub")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  slots        Slot[]
+  inviteTokens InviteToken[]
+
+  @@map("counselors")
+}
+
+// 상담 슬롯 (30분 단위)
+model Slot {
+  id          String   @id @default(uuid())
+  counselorId String   @map("counselor_id")
+  startAt     DateTime @map("start_at")
+  endAt       DateTime @map("end_at")
+  capacity    Int      @default(3) // 최대 3명
+  bookedCount Int      @default(0) @map("booked_count") // 현재 예약 수 (동시성 제어용)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  counselor         Counselor          @relation(fields: [counselorId], references: [id], onDelete: Cascade)
+  reservations      Reservation[]
+  consultationNotes ConsultationNote[]
+
+  // Indexes
+  @@index([counselorId, startAt])
+  @@map("slots")
+}
+
+// 예약
+model Reservation {
+  id          String            @id @default(uuid())
+  slotId      String            @map("slot_id")
+  email       String
+  name        String
+  note        String?           @db.Text
+  status      ReservationStatus @default(BOOKED)
+  createdAt   DateTime          @default(now()) @map("created_at")
+  cancelledAt DateTime?         @map("cancelled_at")
+
+  // Relations
+  slot             Slot              @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  reservationToken ReservationToken?
+  consultationNote ConsultationNote?
+
+  // Constraints
+  @@unique([slotId, email], name: "uniq_reservation_slot_email") // 같은 슬롯에 같은 이메일 중복 예약 방지
+  @@index([slotId, status]) // 슬롯별 예약 상태 조회 최적화 (capacity 체크용)
+  @@map("reservations")
+}
+
+enum ReservationStatus {
+  BOOKED
+  CANCELLED
+  COMPLETED
+}
+
+// 초대 토큰 (예약 페이지 접근용)
+model InviteToken {
+  id          String   @id @default(uuid())
+  counselorId String   @map("counselor_id")
+  token       String   @unique
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  counselor Counselor @relation(fields: [counselorId], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@index([expiresAt]) // 만료된 토큰 정리 쿼리 최적화
+  @@map("invite_tokens")
+}
+
+// 예약 관리 토큰 (예약 취소용)
+model ReservationToken {
+  id            String   @id @default(uuid())
+  reservationId String   @unique @map("reservation_id")
+  token         String   @unique
+  expiresAt     DateTime @map("expires_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  // Relations
+  reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@index([expiresAt]) // 만료된 토큰 정리 쿼리 최적화
+  @@map("reservation_tokens")
+}
+
+// 상담 기록
+model ConsultationNote {
+  id            String   @id @default(uuid())
+  reservationId String   @unique @map("reservation_id")
+  slotId        String   @map("slot_id")
+  content       String   @db.Text
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  slot        Slot        @relation(fields: [slotId], references: [id], onDelete: Cascade)
+
+  @@index([slotId])
+  @@map("consultation_notes")
+}

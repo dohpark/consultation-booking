@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { SlotsModule } from './slots/slots.module';
 import { ReservationsModule } from './reservations/reservations.module';
@@ -14,6 +15,7 @@ import { ConsultationNotesModule } from './consultation-notes/consultation-notes
       isGlobal: true,
       envFilePath: '.env',
     }),
+    PrismaModule,
     AuthModule,
     SlotsModule,
     ReservationsModule,
