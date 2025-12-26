@@ -3,5 +3,6 @@ export class AuthResponseDto {
   user: {
     email: string;
     name: string;
+    userId: string;
   };
 }

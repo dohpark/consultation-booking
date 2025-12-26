@@ -46,6 +46,13 @@ export class AuthService {
         throw new UnauthorizedException('Missing user information from Google');
       }
 
+      // DB에 상담사 저장 또는 업데이트 (upsert)
+      const counselor = await this.authRepository.upsertByGoogleSub({
+        email,
+        name,
+        googleSub: sub,
+      });
+
       // JWT 토큰 발급
       const jwtPayload: JwtPayload = {
         sub,
@@ -58,8 +65,9 @@ export class AuthService {
       return {
         accessToken,
         user: {
-          email,
-          name,
+          email: counselor.email,
+          name: counselor.name,
+          userId: counselor.id,
         },
       };
     } catch (error) {
