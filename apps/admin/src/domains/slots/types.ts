@@ -23,5 +23,20 @@ export interface UpdateSlotDto {
   capacity?: number;
 }
 
+// 예약 타입
+export type ReservationStatus = 'BOOKED' | 'CANCELLED' | 'COMPLETED';
+
+export interface Reservation {
+  id: string;
+  slotId: string;
+  email: string;
+  name: string;
+  note?: string;
+  status: ReservationStatus;
+  createdAt: string;
+  updatedAt: string;
+  cancelledAt?: string;
+}
+
 // 캘린더 모드 타입
 export type CalendarMode = 'viewReservations' | 'editSlots';

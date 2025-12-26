@@ -40,4 +40,3 @@ export function DateDetailModal({ isOpen, onClose, selectedDate, children }: Dat
     </Dialog>
   );
 }
-

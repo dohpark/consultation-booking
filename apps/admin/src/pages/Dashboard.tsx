@@ -2,15 +2,18 @@ import { useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import type FullCalendar from '@fullcalendar/react';
 import { useSlots } from '../domains/slots/hooks/useSlots';
+import { useReservations } from '../domains/slots/hooks/useReservations';
 import { useCalendarNavigation } from '../domains/slots/hooks/useCalendarNavigation';
 import { useCalendarMode } from '../domains/slots/hooks/useCalendarMode';
 import { CalendarHeader } from '../domains/slots/components/CalendarHeader';
 import { CalendarMonthView } from '../domains/slots/components/CalendarMonthView';
 import { DateDetailModal } from '../domains/slots/components/DateDetailModal';
+import { ReservationView } from '../domains/slots/components/ReservationView';
 import type { Slot } from '../domains/slots/types';
 
 const Dashboard = () => {
   const { slots, isLoading, addSlot } = useSlots();
+  const { reservations, cancelReservation, editReservation } = useReservations();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -88,8 +91,17 @@ const Dashboard = () => {
 
       {/* Date Detail Modal */}
       <DateDetailModal isOpen={isModalOpen} onClose={handleCloseModal} selectedDate={selectedDate}>
-        {/* TODO: 모드별 컨텐츠 구현 (DEV-63, DEV-64) */}
-        <div className="text-text-secondary">모달 컨텐츠가 여기에 표시됩니다.</div>
+        {mode === 'viewReservations' && selectedDate ? (
+          <ReservationView
+            selectedDate={selectedDate}
+            slots={slots}
+            reservations={reservations}
+            onCancelReservation={cancelReservation}
+            onEditReservation={editReservation}
+          />
+        ) : (
+          <div className="text-text-secondary">예약 시간 수정 모드 (DEV-64에서 구현 예정)</div>
+        )}
       </DateDetailModal>
     </div>
   );

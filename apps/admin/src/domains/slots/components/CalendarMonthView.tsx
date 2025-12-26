@@ -34,8 +34,8 @@ export function CalendarMonthView({
   const calendarRef = externalRef || internalRef;
   const dayEventRootsRef = useRef<Map<string, Root>>(new Map());
 
-  // mode는 향후 모드별 동작 구현 시 사용 예정
-  void mode;
+  // 예약자 확인 모드에서는 드래그 비활성화
+  const isViewReservationsMode = mode === 'viewReservations';
 
   // 날짜별로 슬롯 그룹화
   const slotsByDate = useMemo(() => groupSlotsByDate(slots), [slots]);
@@ -148,8 +148,8 @@ export function CalendarMonthView({
           initialView="dayGridMonth"
           headerToolbar={false}
           locale={koLocale}
-          selectable={true}
-          selectMirror={true}
+          selectable={!isViewReservationsMode} // 예약자 확인 모드에서는 드래그 비활성화
+          selectMirror={!isViewReservationsMode}
           weekends={true}
           select={handleDateSelect}
           dateClick={handleDateClick}
