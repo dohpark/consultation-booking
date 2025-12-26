@@ -65,6 +65,8 @@ model Reservation {
 
   // Constraints
   @@unique([slotId, email], name: "uniq_reservation_slot_email") // 같은 슬롯에 같은 이메일 중복 예약 방지
+  // Indexes
+  @@index([email, createdAt(sort: Desc)]) // 이메일별 조회 최적화 (상담자 내역 조회용)
   // Note: Partial index는 마이그레이션 SQL로 추가 (Prisma에서 직접 지원 안 함)
   @@map("reservations")
 }
