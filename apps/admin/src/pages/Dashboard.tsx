@@ -9,10 +9,11 @@ import { CalendarHeader } from '../domains/slots/components/CalendarHeader';
 import { CalendarMonthView } from '../domains/slots/components/CalendarMonthView';
 import { DateDetailModal } from '../domains/slots/components/DateDetailModal';
 import { ReservationView } from '../domains/slots/components/ReservationView';
+import { SlotEditView } from '../domains/slots/components/SlotEditView';
 import type { Slot } from '../domains/slots/types';
 
 const Dashboard = () => {
-  const { slots, isLoading, addSlot } = useSlots();
+  const { slots, isLoading, addSlot, removeSlot } = useSlots();
   const { reservations, cancelReservation, editReservation } = useReservations();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -47,10 +48,37 @@ const Dashboard = () => {
     setIsModalOpen(true);
   };
 
-  // 모달 닫기 핸들러
+  // 모달 닫기 핸들러 (취소 동작)
   const handleCloseModal = () => {
+    // 모달 닫기 시 임시 변경사항은 자동으로 취소됨 (SlotEditView의 cleanup)
     setIsModalOpen(false);
     setSelectedDate(null);
+  };
+
+  // 슬롯 변경사항 확인 핸들러 (예약 시간 수정 모드용)
+  const handleConfirmSlotChanges = (addedSlots: Array<{ startAt: Date; endAt: Date }>, deletedSlotIds: string[]) => {
+    // 추가할 슬롯들 생성
+    addedSlots.forEach(({ startAt, endAt }) => {
+      const newSlot: Slot = {
+        id: `temp-${Date.now()}-${Math.random()}`,
+        counselorId: 'temp',
+        startAt: startAt.toISOString(),
+        endAt: endAt.toISOString(),
+        capacity: 3,
+        bookedCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      addSlot(newSlot);
+    });
+
+    // 삭제할 슬롯들 제거
+    deletedSlotIds.forEach(slotId => {
+      removeSlot(slotId);
+    });
+
+    // 모달 닫기
+    handleCloseModal();
   };
 
   return (
@@ -99,9 +127,15 @@ const Dashboard = () => {
             onCancelReservation={cancelReservation}
             onEditReservation={editReservation}
           />
-        ) : (
-          <div className="text-text-secondary">예약 시간 수정 모드 (DEV-64에서 구현 예정)</div>
-        )}
+        ) : mode === 'editSlots' && selectedDate ? (
+          <SlotEditView
+            selectedDate={selectedDate}
+            slots={slots}
+            reservations={reservations}
+            onConfirm={handleConfirmSlotChanges}
+            onCancel={handleCloseModal}
+          />
+        ) : null}
       </DateDetailModal>
     </div>
   );

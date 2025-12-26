@@ -34,8 +34,11 @@ export function CalendarMonthView({
   const calendarRef = externalRef || internalRef;
   const dayEventRootsRef = useRef<Map<string, Root>>(new Map());
 
-  // 예약자 확인 모드에서는 드래그 비활성화
-  const isViewReservationsMode = mode === 'viewReservations';
+  // mode는 향후 모드별 동작 구현 시 사용 예정
+  void mode;
+
+  // 모든 모드에서 드래그 비활성화 (슬롯 추가는 모달 내에서만 가능)
+  const isSelectable = false;
 
   // 날짜별로 슬롯 그룹화
   const slotsByDate = useMemo(() => groupSlotsByDate(slots), [slots]);
@@ -148,8 +151,8 @@ export function CalendarMonthView({
           initialView="dayGridMonth"
           headerToolbar={false}
           locale={koLocale}
-          selectable={!isViewReservationsMode} // 예약자 확인 모드에서는 드래그 비활성화
-          selectMirror={!isViewReservationsMode}
+          selectable={isSelectable} // 모든 모드에서 드래그 비활성화 (슬롯 추가는 모달 내에서만)
+          selectMirror={isSelectable}
           weekends={true}
           select={handleDateSelect}
           dateClick={handleDateClick}
