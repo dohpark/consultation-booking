@@ -1,0 +1,69 @@
+@import 'tailwindcss';
+
+@theme {
+  /* 배경 색상 */
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f8f9fa;
+  --color-bg-tertiary: #f5f5f5;
+  --color-bg-dark: #2c3e50;
+
+  /* 텍스트 색상 */
+  --color-text-primary: #212529;
+  --color-text-secondary: #6c757d;
+  --color-text-tertiary: #adb5bd;
+  --color-text-inverse: #ffffff;
+
+  /* 액센트 색상 */
+  --color-primary: #18b4ad;
+  --color-primary-dark: #0f8a85;
+  --color-primary-light: #e0f7f5;
+  --color-success: #34a853;
+  --color-warning: #fbbc04;
+  --color-error: #ea4335;
+  --color-info: #18b4ad;
+
+  /* 테두리 색상 */
+  --color-border: #dee2e6;
+  --color-border-light: #e9ecef;
+  --color-border-dark: #ced4da;
+
+  /* 폰트 */
+  --font-sans: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  /* 테두리 반경 */
+  --radius-default: 8px;
+  --radius-lg: 12px;
+}
+
+@layer base {
+  body {
+    @apply bg-bg-primary text-text-primary font-sans antialiased;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary text-text-inverse px-6 py-2.5 rounded-lg font-medium transition-all duration-200 hover:bg-primary-dark hover:shadow-lg disabled:bg-text-tertiary disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-transparent text-primary px-6 py-2.5 rounded-lg font-medium border-2 border-primary transition-all duration-200 hover:bg-primary-light;
+  }
+
+  .btn-outline {
+    @apply bg-white text-text-primary px-6 py-2.5 rounded-lg font-medium border border-border transition-all duration-200 hover:bg-bg-secondary hover:border-border-dark;
+  }
+
+  .card {
+    @apply bg-white border border-border-light rounded-xl p-6 shadow-sm transition-all duration-200 hover:shadow-md hover:border-border;
+  }
+
+  .input {
+    @apply w-full px-4 py-3 border border-border rounded-lg bg-white text-text-primary transition-all duration-200 focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 disabled:bg-bg-secondary disabled:text-text-tertiary disabled:cursor-not-allowed;
+  }
+
+  .input-error {
+    @apply border-error focus:border-error focus:ring-error/10;
+  }
+}
+
