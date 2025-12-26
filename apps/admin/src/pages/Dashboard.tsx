@@ -58,8 +58,10 @@ const Dashboard = () => {
   };
 
   // 날짜 범위 확인 핸들러
-  const handleConfirmDateRange = (startDate: Date, endDate: Date) => {
+  const handleConfirmDateRange = (startDate: Date, endDate: Date, option: 'exclude' | 'include') => {
     // 날짜 범위를 상태에 저장하고 모달 열기
+    // option은 향후 사용 예정 (예약이 있는 날짜 제외/포함 처리)
+    void option; // 향후 사용 예정
     setSelectedDateRange({ start: startDate, end: endDate });
     setSelectedDate(startDate);
     setIsDateRangeModalOpen(false);
@@ -175,6 +177,8 @@ const Dashboard = () => {
           }}
           startDate={selectedDateRange.start}
           endDate={selectedDateRange.end}
+          slots={slots}
+          reservations={reservations}
           onConfirm={handleConfirmDateRange}
         />
       )}
