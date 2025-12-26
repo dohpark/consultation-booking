@@ -28,9 +28,9 @@ services:
       - NODE_ENV=development
       - PORT=3002
       - DATABASE_URL=postgresql://${POSTGRES_USER:-consultation_user}:${POSTGRES_PASSWORD:-consultation_pass}@postgres:5432/${POSTGRES_DB:-consultation_booking_dev}
-    # env_file은 선택사항 (.env 파일이 있으면 사용, 없으면 기본값 사용)
+    # env_file은 선택사항 (.env.development 파일이 있으면 사용, 없으면 기본값 사용)
     env_file:
-      - apps/server/.env
+      - apps/server/.env.development
     volumes:
       # Mount source code for hot reload
       - ./apps/server/src:/app/apps/server/src

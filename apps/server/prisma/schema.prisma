@@ -34,6 +34,7 @@ model Slot {
   capacity    Int      @default(3) // 최대 3명
   bookedCount Int      @default(0) @map("booked_count") // 현재 예약 수 (동시성 제어용)
   createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at") // 필수: 리콘실 배치 최적화용
 
   // Relations
   counselor         Counselor          @relation(fields: [counselorId], references: [id], onDelete: Cascade)
@@ -54,6 +55,7 @@ model Reservation {
   note        String?           @db.Text
   status      ReservationStatus @default(BOOKED)
   createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at") // 권장: 상태 변경 추적용
   cancelledAt DateTime?         @map("cancelled_at")
 
   // Relations
@@ -63,7 +65,7 @@ model Reservation {
 
   // Constraints
   @@unique([slotId, email], name: "uniq_reservation_slot_email") // 같은 슬롯에 같은 이메일 중복 예약 방지
-  @@index([slotId, status]) // 슬롯별 예약 상태 조회 최적화 (capacity 체크용)
+  // Note: Partial index는 마이그레이션 SQL로 추가 (Prisma에서 직접 지원 안 함)
   @@map("reservations")
 }
 

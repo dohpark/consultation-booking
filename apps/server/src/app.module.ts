@@ -13,7 +13,9 @@ import { ConsultationNotesModule } from './consultation-notes/consultation-notes
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env',
+      // NODE_ENV에 따라 .env.development 또는 .env.production 로드
+      // 없으면 .env 파일을 fallback으로 사용
+      envFilePath: [`.env.${process.env.NODE_ENV || 'development'}`, '.env'],
     }),
     PrismaModule,
     AuthModule,
