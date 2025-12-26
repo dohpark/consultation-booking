@@ -38,22 +38,22 @@ export function ReservationBlockedModal({ isOpen, onClose, excludedDates }: Rese
           {/* Content */}
           <div className="p-6 space-y-4">
             <Dialog.Description className="text-text-secondary space-y-3">
-              <p>선택한 날짜 중 예약이 있는 날짜는 일괄 수정에서 제외되었습니다.</p>
-              <p>해당 날짜는 달력에서 날짜를 클릭해 개별 수정해주세요.</p>
-
-              {/* 제외된 날짜 목록 */}
-              {excludedDates.length > 0 && (
-                <div className="bg-bg-secondary rounded-lg p-4 mt-4">
-                  <div className="text-sm font-medium text-text-primary mb-2">제외된 날짜:</div>
-                  <div className="text-sm text-text-secondary space-y-1">
-                    {displayDates.map((date, idx) => (
-                      <div key={idx}>{format(date, 'M월 d일 (EEE)', { locale: ko })}</div>
-                    ))}
-                    {remainingCount > 0 && <div className="text-text-tertiary">외 {remainingCount}일</div>}
-                  </div>
-                </div>
-              )}
+              선택한 날짜 중 예약이 있는 날짜는 일괄 수정에서 제외되었습니다. 해당 날짜는 달력에서 날짜를 클릭해 개별
+              수정해주세요.
             </Dialog.Description>
+
+            {/* 제외된 날짜 목록 */}
+            {excludedDates.length > 0 && (
+              <div className="bg-bg-secondary rounded-lg p-4">
+                <div className="text-sm font-medium text-text-primary mb-2">제외된 날짜:</div>
+                <div className="text-sm text-text-secondary space-y-1">
+                  {displayDates.map((date, idx) => (
+                    <div key={idx}>{format(date, 'M월 d일 (EEE)', { locale: ko })}</div>
+                  ))}
+                  {remainingCount > 0 && <div className="text-text-tertiary">외 {remainingCount}일</div>}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Footer */}
