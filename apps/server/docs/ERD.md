@@ -33,7 +33,9 @@
 │ start_at        │         │ token (UNIQUE)  │
 │ end_at          │         │ expires_at      │
 │ capacity (3)    │         │ created_at      │
-│ created_at      │         └─────────────────┘
+│ booked_count (0)│         └─────────────────┘
+│ created_at      │
+│ updated_at      │
 └────────┬────────┘
          │
          │ 1:N
@@ -52,7 +54,8 @@
 │ note            │         │ content         │
 │ status          │         │ created_at      │
 │ created_at      │         │ updated_at      │
-│ cancelled_at    │         └─────────────────┘
+│ updated_at      │         └─────────────────┘
+│ cancelled_at    │
 └────────┬────────┘
          │
          │ 1:1
@@ -84,6 +87,9 @@
 - **역할**: 30분 단위 상담 시간대
 - **제약조건**:
   - `capacity`: 기본값 3 (최대 3명 예약 가능)
+  - `booked_count`: 기본값 0 (현재 예약 수, 동시성 제어용)
+  - `CHECK (booked_count >= 0 AND booked_count <= capacity)`: booked_count 범위 검증
+  - `CHECK (capacity > 0)`: capacity 양수 검증
   - `index(counselor_id, start_at)`: 상담사별 시간 조회 최적화
 - **관계**:
   - `N:1` → `counselors` (슬롯은 한 상담사에 속함)
@@ -132,20 +138,35 @@
 ## 주요 제약조건
 
 1. **중복 예약 방지**: `reservations(slot_id, email) UNIQUE` - 같은 슬롯에 같은 이메일로 중복 예약 불가
-2. **슬롯당 최대 3명**: `slots.capacity = 3` (애플리케이션 레벨에서 체크)
+2. **슬롯당 최대 3명**: `slots.capacity = 3` (기본값)
+   - `slots.booked_count`로 현재 예약 수 추적 (동시성 제어용)
    - `status = 'BOOKED'`인 예약만 카운트하여 capacity 체크
    - `CANCELLED`, `COMPLETED` 상태는 capacity에 포함되지 않음
-3. **동시성 처리**: 트랜잭션 + `SELECT FOR UPDATE`로 예약 수 체크
-4. **슬롯 시간 검증**: `startAt < endAt` (애플리케이션 레벨에서 검증)
+3. **CHECK 제약조건**:
+   - `slots_booked_count_range`: `booked_count >= 0 AND booked_count <= capacity` (필수)
+   - `slots_capacity_positive`: `capacity > 0` (권장)
+4. **동시성 처리**: 트랜잭션 + 원자적 `UPDATE`로 `booked_count` 관리 (자세한 내용은 [DB_DESIGN.md](./DB_DESIGN.md) 참조)
+5. **슬롯 시간 검증**: `startAt < endAt` (애플리케이션 레벨에서 검증)
 
 ## 인덱스
 
+### 일반 인덱스
+
 - `slots(counselor_id, start_at)`: 상담사별 날짜별 슬롯 조회 최적화
-- `reservations(slot_id, status)`: 슬롯별 예약 상태 조회 최적화 (capacity 체크용)
 - `consultation_notes(slot_id)`: 슬롯별 상담 기록 조회 최적화
 - `invite_tokens(expires_at)`: 만료된 초대 토큰 정리 쿼리 최적화
 - `reservation_tokens(expires_at)`: 만료된 예약 관리 토큰 정리 쿼리 최적화
-- `counselors(email)`: 이메일로 상담사 조회 (UNIQUE 제약조건으로 자동 인덱스)
-- `counselors(google_sub)`: Google OAuth sub로 상담사 조회 (UNIQUE 제약조건으로 자동 인덱스)
-- `invite_tokens(token)`: 토큰으로 초대 정보 조회 (UNIQUE 제약조건으로 자동 인덱스)
-- `reservation_tokens(token)`: 토큰으로 예약 정보 조회 (UNIQUE 제약조건으로 자동 인덱스)
+
+### UNIQUE 인덱스 (제약조건으로 자동 생성)
+
+- `counselors(email)`: 이메일로 상담사 조회
+- `counselors(google_sub)`: Google OAuth sub로 상담사 조회
+- `reservations(slot_id, email)`: 중복 예약 방지
+- `invite_tokens(token)`: 토큰으로 초대 정보 조회
+- `reservation_tokens(token)`: 토큰으로 예약 정보 조회
+- `reservation_tokens(reservation_id)`: 예약당 하나의 토큰 보장
+- `consultation_notes(reservation_id)`: 예약당 하나의 상담 기록 보장
+
+### Partial Index (PostgreSQL)
+
+- `reservations(slot_id, created_at) WHERE status='BOOKED'`: BOOKED 상태 예약만 인덱싱하여 capacity 체크 및 정렬 쿼리 최적화
