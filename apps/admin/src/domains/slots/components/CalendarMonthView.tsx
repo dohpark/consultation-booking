@@ -1,4 +1,4 @@
-import { useRef, useMemo, useEffect } from 'react';
+import { useRef, useMemo, useEffect, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Root } from 'react-dom/client';
 import FullCalendar from '@fullcalendar/react';
@@ -9,11 +9,12 @@ import type { DateSelectArg, DayCellContentArg, DayCellMountArg } from '@fullcal
 import { format } from 'date-fns';
 import { groupSlotsByDate } from '../utils/groupSlotsByDate';
 import { TimeRangeSummary } from './TimeRangeSummary';
-import type { Slot } from '../types';
+import type { Slot, CalendarMode } from '../types';
 
 interface CalendarMonthViewProps {
   slots: Slot[];
   isLoading?: boolean;
+  mode?: CalendarMode;
   onDateSelect?: (start: Date) => void;
   onDateClick?: (date: Date) => void;
   onNavigationChange?: (date: Date) => void;
@@ -23,6 +24,7 @@ interface CalendarMonthViewProps {
 export function CalendarMonthView({
   slots,
   isLoading = false,
+  mode = 'viewReservations', // TODO: 모드별 동작 구현 (DEV-62, DEV-63)
   onDateSelect,
   onDateClick,
   onNavigationChange,
@@ -31,6 +33,9 @@ export function CalendarMonthView({
   const internalRef = useRef<FullCalendar | null>(null);
   const calendarRef = externalRef || internalRef;
   const dayEventRootsRef = useRef<Map<string, Root>>(new Map());
+
+  // mode는 향후 모드별 동작 구현 시 사용 예정
+  void mode;
 
   // 날짜별로 슬롯 그룹화
   const slotsByDate = useMemo(() => groupSlotsByDate(slots), [slots]);
@@ -43,72 +48,92 @@ export function CalendarMonthView({
       // 기존 Root를 사용하여 새로운 데이터로 다시 렌더링
       root.render(<TimeRangeSummary slots={daySlots} />);
     });
-  }, [slots, slotsByDate]);
+  }, [slotsByDate]);
 
   // 날짜 셀 커스텀 렌더링 (day-top 영역만)
-  const renderDayCellContent = (arg: DayCellContentArg) => {
+  const renderDayCellContent = useCallback((arg: DayCellContentArg) => {
     // 날짜 번호만 반환 (day-top 영역)
     return <div className="fc-daygrid-day-number text-right">{arg.dayNumberText}</div>;
-  };
+  }, []);
 
   // dayCellDidMount: day-events 영역에 시간대 요약 추가
-  const handleDayCellMount = (arg: DayCellMountArg) => {
-    const dateKey = format(arg.date, 'yyyy-MM-dd');
-    const dayEventsEl = arg.el.querySelector('.fc-daygrid-day-events') as HTMLElement;
+  const handleDayCellMount = useCallback(
+    (arg: DayCellMountArg) => {
+      const dateKey = format(arg.date, 'yyyy-MM-dd');
+      const dayEventsEl = arg.el.querySelector('.fc-daygrid-day-events') as HTMLElement;
 
-    if (!dayEventsEl) return;
+      if (!dayEventsEl) return;
 
-    // 기존에 렌더링된 내용이 있으면 제거
-    const existingRoot = dayEventRootsRef.current.get(dateKey);
-    if (existingRoot) {
-      existingRoot.unmount();
-      dayEventRootsRef.current.delete(dateKey);
-    }
+      // 기존에 렌더링된 내용이 있으면 제거
+      const existingRoot = dayEventRootsRef.current.get(dateKey);
+      if (existingRoot) {
+        existingRoot.unmount();
+        dayEventRootsRef.current.delete(dateKey);
+      }
 
-    // 기존 컨테이너 제거
-    const existingContainer = dayEventsEl.querySelector('div');
-    if (existingContainer && existingContainer.parentElement === dayEventsEl) {
-      dayEventsEl.removeChild(existingContainer);
-    }
+      // 기존 컨테이너 제거
+      const existingContainer = dayEventsEl.querySelector('div');
+      if (existingContainer && existingContainer.parentElement === dayEventsEl) {
+        dayEventsEl.removeChild(existingContainer);
+      }
 
-    // 항상 컨테이너 생성 (슬롯이 없어도 나중에 업데이트할 수 있도록)
-    const container = document.createElement('div');
-    dayEventsEl.appendChild(container);
+      // 항상 컨테이너 생성 (슬롯이 없어도 나중에 업데이트할 수 있도록)
+      const container = document.createElement('div');
+      dayEventsEl.appendChild(container);
 
-    const root = createRoot(container);
-    const daySlots = slotsByDate[dateKey] || [];
-    root.render(<TimeRangeSummary slots={daySlots} />);
-    dayEventRootsRef.current.set(dateKey, root);
-  };
+      const root = createRoot(container);
+      const daySlots = slotsByDate[dateKey] || [];
+      root.render(<TimeRangeSummary slots={daySlots} />);
+      dayEventRootsRef.current.set(dateKey, root);
+    },
+    [slotsByDate],
+  );
 
   // dayCellWillUnmount: cleanup
-  const handleDayCellUnmount = (arg: DayCellMountArg) => {
+  const handleDayCellUnmount = useCallback((arg: DayCellMountArg) => {
     const dateKey = format(arg.date, 'yyyy-MM-dd');
     const root = dayEventRootsRef.current.get(dateKey);
     if (root) {
       root.unmount();
       dayEventRootsRef.current.delete(dateKey);
     }
-  };
+  }, []);
 
   // 날짜 선택 핸들러 (슬롯 생성)
-  const handleDateSelect = (selectInfo: DateSelectArg) => {
-    const { start } = selectInfo;
+  const handleDateSelect = useCallback(
+    (selectInfo: DateSelectArg) => {
+      const { start } = selectInfo;
 
-    // 30분 단위로 정렬
-    const startMinutes = start.getMinutes();
-    const roundedStartMinutes = startMinutes < 30 ? 0 : 30;
-    const roundedStart = new Date(start);
-    roundedStart.setMinutes(roundedStartMinutes, 0, 0);
+      // 30분 단위로 정렬
+      const startMinutes = start.getMinutes();
+      const roundedStartMinutes = startMinutes < 30 ? 0 : 30;
+      const roundedStart = new Date(start);
+      roundedStart.setMinutes(roundedStartMinutes, 0, 0);
 
-    onDateSelect?.(roundedStart);
-    selectInfo.view.calendar.unselect();
-  };
+      onDateSelect?.(roundedStart);
+      selectInfo.view.calendar.unselect();
+    },
+    [onDateSelect],
+  );
 
   // 날짜 클릭 핸들러
-  const handleDateClick = (arg: { date: Date }) => {
-    onDateClick?.(arg.date);
-  };
+  const handleDateClick = useCallback(
+    (arg: { date: Date }) => {
+      onDateClick?.(arg.date);
+    },
+    [onDateClick],
+  );
+
+  // datesSet 핸들러
+  const handleDatesSet = useCallback(
+    (arg: { view: { currentStart: Date } }) => {
+      // FullCalendar의 view.currentStart는 해당 월의 첫 번째 날짜를 나타냄
+      // arg.start는 달력이 보여주는 첫 번째 날짜(이전 달 일부 포함 가능)이므로
+      // view.currentStart를 사용하여 정확한 월을 가져옴
+      onNavigationChange?.(arg.view.currentStart);
+    },
+    [onNavigationChange],
+  );
 
   return (
     <div className="flex-1">
@@ -134,9 +159,7 @@ export function CalendarMonthView({
           height="auto"
           dayMaxEvents={false}
           moreLinkClick="popover"
-          datesSet={arg => {
-            onNavigationChange?.(arg.start);
-          }}
+          datesSet={handleDatesSet}
         />
       )}
     </div>

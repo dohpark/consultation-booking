@@ -1,15 +1,28 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import { CalendarModeToggle } from './CalendarModeToggle';
+import type { CalendarMode } from '../types';
 
 interface CalendarHeaderProps {
   currentDate: Date;
   onPrev: () => void;
   onNext: () => void;
   onToday: () => void;
+  mode: CalendarMode;
+  onToggleViewReservations: () => void;
+  onToggleEditSlots: () => void;
 }
 
-export function CalendarHeader({ currentDate, onPrev, onNext, onToday }: CalendarHeaderProps) {
+export function CalendarHeader({
+  currentDate,
+  onPrev,
+  onNext,
+  onToday,
+  mode,
+  onToggleViewReservations,
+  onToggleEditSlots,
+}: CalendarHeaderProps) {
   const dateTitle = format(currentDate, 'yyyy년 M월', { locale: ko });
 
   return (
@@ -34,6 +47,11 @@ export function CalendarHeader({ currentDate, onPrev, onNext, onToday }: Calenda
           </button>
         </div>
       </div>
+      <CalendarModeToggle
+        mode={mode}
+        onToggleViewReservations={onToggleViewReservations}
+        onToggleEditSlots={onToggleEditSlots}
+      />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { Plus } from 'lucide-react';
 import type FullCalendar from '@fullcalendar/react';
 import { useSlots } from '../domains/slots/hooks/useSlots';
 import { useCalendarNavigation } from '../domains/slots/hooks/useCalendarNavigation';
+import { useCalendarMode } from '../domains/slots/hooks/useCalendarMode';
 import { CalendarHeader } from '../domains/slots/components/CalendarHeader';
 import { CalendarMonthView } from '../domains/slots/components/CalendarMonthView';
 import type { Slot } from '../domains/slots/types';
@@ -12,6 +13,7 @@ const Dashboard = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const calendarRef = useRef<FullCalendar>(null);
   const { handlePrev, handleNext, handleToday } = useCalendarNavigation(calendarRef);
+  const { mode, toggleViewReservations, toggleEditSlots } = useCalendarMode();
 
   // 날짜 선택 핸들러 (슬롯 생성)
   const handleDateSelect = (start: Date) => {
@@ -55,11 +57,20 @@ const Dashboard = () => {
 
       {/* Calendar */}
       <div className="card min-h-[600px] flex flex-col">
-        <CalendarHeader currentDate={currentDate} onPrev={handlePrev} onNext={handleNext} onToday={handleToday} />
+        <CalendarHeader
+          currentDate={currentDate}
+          onPrev={handlePrev}
+          onNext={handleNext}
+          onToday={handleToday}
+          mode={mode}
+          onToggleViewReservations={toggleViewReservations}
+          onToggleEditSlots={toggleEditSlots}
+        />
         <CalendarMonthView
           calendarRef={calendarRef}
           slots={slots}
           isLoading={isLoading}
+          mode={mode}
           onDateSelect={handleDateSelect}
           onDateClick={handleDateClick}
           onNavigationChange={setCurrentDate}

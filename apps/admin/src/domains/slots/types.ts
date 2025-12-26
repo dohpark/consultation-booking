@@ -22,3 +22,6 @@ export interface UpdateSlotDto {
   endAt?: string;
   capacity?: number;
 }
+
+// 캘린더 모드 타입
+export type CalendarMode = 'viewReservations' | 'editSlots';
