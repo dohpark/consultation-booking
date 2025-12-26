@@ -9,8 +9,10 @@ import { CalendarHeader } from '../domains/slots/components/CalendarHeader';
 import { CalendarMonthView } from '../domains/slots/components/CalendarMonthView';
 import { DateDetailModal } from '../domains/slots/components/DateDetailModal';
 import { DateRangeConfirmModal } from '../domains/slots/components/DateRangeConfirmModal';
+import { ReservationBlockedModal } from '../domains/slots/components/ReservationBlockedModal';
 import { ReservationView } from '../domains/slots/components/ReservationView';
 import { SlotEditView } from '../domains/slots/components/SlotEditView';
+import { eachDayOfInterval, startOfDay, endOfDay, format, parseISO } from 'date-fns';
 import type { Slot } from '../domains/slots/types';
 
 const Dashboard = () => {
@@ -21,6 +23,9 @@ const Dashboard = () => {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isDateRangeModalOpen, setIsDateRangeModalOpen] = useState(false);
   const [selectedDateRange, setSelectedDateRange] = useState<{ start: Date; end: Date } | null>(null);
+  const [isReservationBlockedModalOpen, setIsReservationBlockedModalOpen] = useState(false);
+  const [pendingFilteredDateRange, setPendingFilteredDateRange] = useState<{ start: Date; end: Date } | null>(null);
+  const [excludedDates, setExcludedDates] = useState<Date[]>([]);
   const calendarRef = useRef<FullCalendar>(null);
   const { handlePrev, handleNext, handleToday } = useCalendarNavigation(calendarRef);
   const { mode, toggleViewReservations, toggleEditSlots } = useCalendarMode();
@@ -53,15 +58,52 @@ const Dashboard = () => {
 
   // 날짜 범위 선택 핸들러 (드래그 선택)
   const handleDateRangeSelect = (start: Date, end: Date) => {
-    setSelectedDateRange({ start, end });
-    setIsDateRangeModalOpen(true);
+    // 날짜 범위의 모든 날짜 생성 (시작일과 종료일 포함)
+    const startDay = startOfDay(start);
+    const endDay = endOfDay(end);
+    const dates = eachDayOfInterval({ start: startDay, end: endDay });
+
+    // 예약이 있는 날짜와 없는 날짜 필터링
+    const editableDates: Date[] = [];
+    const blockedDates: Date[] = [];
+
+    dates.forEach(date => {
+      const hasReservations = dateHasReservations(date);
+      if (hasReservations) {
+        blockedDates.push(date);
+      } else {
+        editableDates.push(date);
+      }
+    });
+
+    // 예약이 있는 날짜가 포함된 경우 안내 모달 표시
+    if (blockedDates.length > 0) {
+      setExcludedDates(blockedDates);
+      setIsReservationBlockedModalOpen(true);
+    }
+
+    // 예약 없는 날짜가 1개라도 있으면 일괄 적용 진행
+    if (editableDates.length > 0) {
+      const filteredStart = editableDates[0];
+      const filteredEnd = editableDates[editableDates.length - 1];
+      setSelectedDateRange({ start: filteredStart, end: filteredEnd });
+      // 안내 모달이 표시된 경우, 모달 확인 후 편집 모달 열기
+      if (blockedDates.length > 0) {
+        setPendingFilteredDateRange({ start: filteredStart, end: filteredEnd });
+      } else {
+        // 예약 없는 날짜만 있는 경우 바로 편집 모달 열기
+        setIsDateRangeModalOpen(true);
+      }
+    } else {
+      // 드래그 범위가 전부 예약 있는 날짜인 경우 일괄 적용 안 함
+      setSelectedDateRange(null);
+      setPendingFilteredDateRange(null);
+    }
   };
 
   // 날짜 범위 확인 핸들러
-  const handleConfirmDateRange = (startDate: Date, endDate: Date, option: 'exclude' | 'include') => {
+  const handleConfirmDateRange = (startDate: Date, endDate: Date) => {
     // 날짜 범위를 상태에 저장하고 모달 열기
-    // option은 향후 사용 예정 (예약이 있는 날짜 제외/포함 처리)
-    void option; // 향후 사용 예정
     setSelectedDateRange({ start: startDate, end: endDate });
     setSelectedDate(startDate);
     setIsDateRangeModalOpen(false);
@@ -76,8 +118,49 @@ const Dashboard = () => {
     setSelectedDateRange(null);
   };
 
+  // 슬롯에 예약이 있는지 확인
+  const hasReservations = (slot: Slot): boolean => {
+    return reservations.some(reservation => reservation.slotId === slot.id && reservation.status === 'BOOKED');
+  };
+
+  // 날짜에 예약이 있는지 확인
+  const dateHasReservations = (date: Date): boolean => {
+    const dateKey = format(date, 'yyyy-MM-dd');
+
+    // 해당 날짜의 슬롯 찾기
+    const dateSlots = slots.filter(slot => {
+      const slotDate = format(parseISO(slot.startAt), 'yyyy-MM-dd');
+      return slotDate === dateKey;
+    });
+
+    // 해당 날짜의 슬롯 중 예약이 있는 슬롯이 있는지 확인
+    return dateSlots.some(slot => hasReservations(slot));
+  };
+
   // 슬롯 변경사항 확인 핸들러 (예약 시간 수정 모드용)
   const handleConfirmSlotChanges = (addedSlots: Array<{ startAt: Date; endAt: Date }>, deletedSlotIds: string[]) => {
+    // 날짜 범위가 있는 경우, 예약 없는 슬롯만 삭제 대상에 추가 (덮어쓰기 방식)
+    if (selectedDateRange) {
+      const { start, end } = selectedDateRange;
+      const startDay = new Date(start);
+      startDay.setHours(0, 0, 0, 0);
+      const endDay = new Date(end);
+      endDay.setHours(23, 59, 59, 999);
+
+      // 날짜 범위 내의 모든 슬롯 찾기
+      const rangeSlots = slots.filter(slot => {
+        const slotDate = new Date(slot.startAt);
+        return slotDate >= startDay && slotDate <= endDay;
+      });
+
+      // 예약이 없는 슬롯만 삭제 대상에 추가 (이미 deletedSlotIds에 포함된 것은 제외)
+      rangeSlots.forEach(slot => {
+        if (!hasReservations(slot) && !deletedSlotIds.includes(slot.id)) {
+          deletedSlotIds.push(slot.id);
+        }
+      });
+    }
+
     // 추가할 슬롯들 생성
     addedSlots.forEach(({ startAt, endAt }) => {
       const newSlot: Slot = {
@@ -93,9 +176,12 @@ const Dashboard = () => {
       addSlot(newSlot);
     });
 
-    // 삭제할 슬롯들 제거
+    // 삭제할 슬롯들 제거 (예약이 있는 슬롯은 보호)
     deletedSlotIds.forEach(slotId => {
-      removeSlot(slotId);
+      const slot = slots.find(s => s.id === slotId);
+      if (slot && !hasReservations(slot)) {
+        removeSlot(slotId);
+      }
     });
 
     // 모달 닫기
@@ -177,11 +263,26 @@ const Dashboard = () => {
           }}
           startDate={selectedDateRange.start}
           endDate={selectedDateRange.end}
-          slots={slots}
-          reservations={reservations}
           onConfirm={handleConfirmDateRange}
         />
       )}
+
+      {/* Reservation Blocked Modal */}
+      <ReservationBlockedModal
+        isOpen={isReservationBlockedModalOpen}
+        excludedDates={excludedDates}
+        onClose={() => {
+          setIsReservationBlockedModalOpen(false);
+          setExcludedDates([]);
+          // 안내 모달 닫은 후, 필터링된 날짜 범위가 있으면 편집 모달 열기
+          if (pendingFilteredDateRange) {
+            setSelectedDateRange(pendingFilteredDateRange);
+            setSelectedDate(pendingFilteredDateRange.start);
+            setIsModalOpen(true);
+            setPendingFilteredDateRange(null);
+          }
+        }}
+      />
     </div>
   );
 };

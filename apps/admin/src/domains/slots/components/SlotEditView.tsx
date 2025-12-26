@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { format, parseISO, startOfDay, addMinutes, isSameDay } from 'date-fns';
+import { format, parseISO, startOfDay, addMinutes, isSameDay, eachDayOfInterval, endOfDay } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { Trash2, Lock } from 'lucide-react';
 import type { Slot, Reservation } from '../types';
@@ -23,12 +23,25 @@ const generateTimeSlots = (date: Date): Date[] => {
   return slots;
 };
 
-export function SlotEditView({ selectedDate, slots, reservations, onConfirm, onCancel }: SlotEditViewProps) {
-  const dateKey = format(selectedDate, 'yyyy-MM-dd');
-  const daySlots = slots.filter(slot => {
-    const slotDate = format(parseISO(slot.startAt), 'yyyy-MM-dd');
-    return slotDate === dateKey;
-  });
+export function SlotEditView({
+  selectedDate,
+  selectedDateRange,
+  slots,
+  reservations,
+  onConfirm,
+  onCancel,
+}: SlotEditViewProps) {
+  // 날짜 범위 모드일 때는 빈 상태로 시작 (사용자가 명시적으로 슬롯을 추가해야 함)
+  // 단일 날짜 모드일 때만 해당 날짜의 슬롯을 표시
+  const daySlots = selectedDateRange
+    ? [] // 날짜 범위 모드: 빈 상태로 시작
+    : (() => {
+        const dateKey = format(selectedDate, 'yyyy-MM-dd');
+        return slots.filter(slot => {
+          const slotDate = format(parseISO(slot.startAt), 'yyyy-MM-dd');
+          return slotDate === dateKey;
+        });
+      })();
 
   // 임시 변경사항 관리
   // selectedDate나 selectedDateRange가 변경되면 컴포넌트가 리마운트되므로
@@ -116,18 +129,49 @@ export function SlotEditView({ selectedDate, slots, reservations, onConfirm, onC
     }
   };
 
+  // 날짜에 예약이 있는지 확인
+  const dateHasReservations = (date: Date): boolean => {
+    const dateKey = format(date, 'yyyy-MM-dd');
+    // 해당 날짜의 슬롯 찾기
+    const dateSlots = slots.filter(slot => {
+      try {
+        const slotDate = format(parseISO(slot.startAt), 'yyyy-MM-dd');
+        return slotDate === dateKey;
+      } catch (error) {
+        console.error('[SlotEditView] dateHasReservations - slot 날짜 파싱 오류:', slot.startAt, error);
+        return false;
+      }
+    });
+    // 해당 날짜의 슬롯 중 예약이 있는 슬롯이 있는지 확인
+    return dateSlots.some(slot => {
+      return reservations.some(reservation => reservation.slotId === slot.id && reservation.status === 'BOOKED');
+    });
+  };
+
   // 확인 핸들러
   const handleConfirm = () => {
     const addedSlots: Array<{ startAt: Date; endAt: Date }> = [];
     const deletedSlotIds = Array.from(pendingDeletedSlotIds);
 
+    // 날짜 범위가 있으면 모든 날짜에 슬롯 추가 (단, 예약이 있는 날짜는 제외)
+    const allDates = selectedDateRange
+      ? eachDayOfInterval({ start: startOfDay(selectedDateRange.start), end: endOfDay(selectedDateRange.end) })
+      : [selectedDate];
+
+    // 예약이 없는 날짜만 필터링
+    const dates = allDates.filter(date => !dateHasReservations(date));
+
     // 추가 예정인 슬롯들을 실제 시간으로 변환
     pendingAddedSlots.forEach(timeKey => {
       const [hours, minutes] = timeKey.split(':').map(Number);
-      const startAt = new Date(selectedDate);
-      startAt.setHours(hours, minutes, 0, 0);
-      const endAt = addMinutes(startAt, 30);
-      addedSlots.push({ startAt, endAt });
+
+      // 모든 날짜에 해당 시간대 슬롯 추가
+      dates.forEach((date: Date) => {
+        const startAt = new Date(date);
+        startAt.setHours(hours, minutes, 0, 0);
+        const endAt = addMinutes(startAt, 30);
+        addedSlots.push({ startAt, endAt });
+      });
     });
 
     onConfirm?.(addedSlots, deletedSlotIds);

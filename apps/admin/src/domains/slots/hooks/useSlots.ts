@@ -10,7 +10,7 @@ const generateDummySlots = (): Slot[] => {
 
   // 오늘 날짜의 슬롯들 (예약이 있는 슬롯 포함)
   const todayStr = today.toISOString().split('T')[0];
-  
+
   // 10:00 슬롯 (예약 2명)
   slots.push({
     id: `slot-${todayStr}-10-0`,
