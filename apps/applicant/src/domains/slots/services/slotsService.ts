@@ -16,6 +16,8 @@ export async function fetchSlotsByDate(date: string, token: string): Promise<Slo
   const queryParams = new URLSearchParams();
   queryParams.append('date', date);
   queryParams.append('token', token);
+  // 로컬 시간대 오프셋 추가 (분 단위, 한국 KST의 경우 -540)
+  queryParams.append('offset', new Date().getTimezoneOffset().toString());
 
   const url = `${getApiEndpoint('/public/slots')}?${queryParams}`;
 

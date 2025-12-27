@@ -43,16 +43,22 @@ export class SlotsService {
    * 배치 슬롯 생성
    */
   async createBatchSlots(counselorId: string, dto: CreateBatchSlotsDto): Promise<SlotResponseDto[]> {
-    const startDate = new Date(dto.startDate);
-    const endDate = new Date(dto.endDate);
+    // 날짜 문자열(YYYY-MM-DD)을 UTC 자정으로 파싱
+    const parseUTCDate = (dateStr: string) => {
+      const [year, month, day] = dateStr.split('-').map(Number);
+      return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+    };
+
+    const startDate = parseUTCDate(dto.startDate);
+    const endDate = parseUTCDate(dto.endDate);
 
     // 날짜 범위 검증
     if (startDate > endDate) {
       throw new BadRequestException('시작 날짜는 종료 날짜보다 이전이어야 합니다.');
     }
 
-    // 제외 날짜 Set 생성
-    const excludeDatesSet = new Set((dto.excludeDates || []).map(date => new Date(date).toDateString()));
+    // 제외 날짜 Set 생성 (YYYY-MM-DD 형식으로 저장)
+    const excludeDatesSet = new Set(dto.excludeDates || []);
 
     // 생성할 슬롯 목록
     const slotsToCreate: Array<{
@@ -65,19 +71,19 @@ export class SlotsService {
     // 날짜 범위 순회
     const currentDate = new Date(startDate);
     while (currentDate <= endDate) {
-      const dateString = currentDate.toDateString();
+      const dateKey = currentDate.toISOString().split('T')[0];
 
       // 제외 날짜가 아니면 처리
-      if (!excludeDatesSet.has(dateString)) {
+      if (!excludeDatesSet.has(dateKey)) {
         // 각 시간대마다 슬롯 생성
         for (const timeSlot of dto.timeSlots) {
           const [hours, minutes] = timeSlot.split(':').map(Number);
 
           const startAt = new Date(currentDate);
-          startAt.setHours(hours, minutes, 0, 0);
+          startAt.setUTCHours(hours, minutes, 0, 0);
 
           const endAt = new Date(startAt);
-          endAt.setMinutes(endAt.getMinutes() + 30);
+          endAt.setUTCMinutes(endAt.getUTCMinutes() + 30);
 
           // 중복 확인
           const duplicate = await this.slotsRepository.findDuplicate(counselorId, startAt, endAt);
@@ -94,8 +100,8 @@ export class SlotsService {
         }
       }
 
-      // 다음 날로 이동
-      currentDate.setDate(currentDate.getDate() + 1);
+      // 다음 날로 이동 (UTC 기준)
+      currentDate.setUTCDate(currentDate.getUTCDate() + 1);
     }
 
     if (slotsToCreate.length === 0) {
@@ -123,14 +129,22 @@ export class SlotsService {
    * 상담사별 날짜 범위 조회
    */
   async getSlotsByDateRange(counselorId: string, from: string, to: string): Promise<SlotResponseDto[]> {
-    const fromDate = new Date(from);
-    const toDate = new Date(to);
+    const parseUTCDate = (dateStr: string) => {
+      const [year, month, day] = dateStr.split('-').map(Number);
+      return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+    };
 
-    if (fromDate > toDate) {
+    const fromDate = parseUTCDate(from);
+    const toDate = parseUTCDate(to);
+    // 종료 날짜의 끝(23:59:59.999 UTC)까지 포함하도록 설정
+    const toDateEnd = new Date(toDate);
+    toDateEnd.setUTCHours(23, 59, 59, 999);
+
+    if (fromDate > toDateEnd) {
       throw new BadRequestException('시작 날짜는 종료 날짜보다 이전이어야 합니다.');
     }
 
-    const slots = await this.slotsRepository.findByCounselorAndDateRange(counselorId, fromDate, toDate);
+    const slots = await this.slotsRepository.findByCounselorAndDateRange(counselorId, fromDate, toDateEnd);
 
     return slots.map(slot => this.toResponseDto(slot));
   }
@@ -138,11 +152,18 @@ export class SlotsService {
   /**
    * 특정 날짜의 슬롯 조회 (Public - 예약 가능 여부 포함)
    */
-  async getPublicSlotsByDate(counselorId: string, date: string): Promise<SlotResponseDto[]> {
-    const targetDate = new Date(date);
-    targetDate.setHours(0, 0, 0, 0);
+  async getPublicSlotsByDate(counselorId: string, date: string, offset: number = 0): Promise<SlotResponseDto[]> {
+    const [year, month, day] = date.split('-').map(Number);
+    // 1. UTC 기준 자정 객체 생성
+    const targetDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
 
-    const slots = await this.slotsRepository.findByCounselorAndDate(counselorId, targetDate);
+    // 2. 사용자의 로컬 00:00:00에 해당하는 정확한 UTC 시점 계산
+    // getTimezoneOffset()은 (UTC - 로컬) 분을 반환함.
+    // 예: KST(UTC+9)는 -540분.
+    // 29일 00:00 KST = 29일 00:00 UTC + (-540분) = 28일 15:00 UTC.
+    const startOfLocalDayUtc = new Date(targetDate.getTime() + offset * 60 * 1000);
+
+    const slots = await this.slotsRepository.findByCounselorAndDate(counselorId, startOfLocalDayUtc);
 
     return slots.map(slot => this.toResponseDto(slot));
   }

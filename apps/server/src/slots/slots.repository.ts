@@ -81,11 +81,12 @@ export class SlotsRepository {
     counselorId: string,
     date: Date,
   ): Promise<Array<Slot & { reservations: Array<{ id: string }> }>> {
+    // date는 이미 UTC 자정으로 전달됨
     const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
+    startOfDay.setUTCHours(0, 0, 0, 0);
 
     const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
+    endOfDay.setUTCHours(23, 59, 59, 999);
 
     return this.prisma.slot.findMany({
       where: {

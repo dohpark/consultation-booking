@@ -22,17 +22,18 @@ export class PublicSlotsController {
   async getSlotsByDate(
     @Query('date') date: string,
     @Query('token') token: string,
+    @Query('offset') offset?: string,
   ): Promise<ApiResponse<SlotResponseDto[]>> {
     if (!token) {
       throw new BadRequestException('토큰이 필요합니다.');
     }
 
-    // 토큰 검증 및 상담사 정보 가져오기
     const tokenInfo = await this.invitationsService.validateToken(token);
     const counselorId: string = tokenInfo.counselorId;
 
-    // 해당 날짜의 슬롯 조회
-    const result: SlotResponseDto[] = await this.slotsService.getPublicSlotsByDate(counselorId, date);
+    // 오프셋을 고려하여 서비스 호출 (기본값 0)
+    const tzOffset = offset ? parseInt(offset, 10) : 0;
+    const result: SlotResponseDto[] = await this.slotsService.getPublicSlotsByDate(counselorId, date, tzOffset);
 
     return ApiResponse.success(result);
   }
