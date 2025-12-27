@@ -8,4 +8,5 @@ export class ReservationResponseDto {
   createdAt: Date;
   updatedAt: Date;
   cancelledAt?: Date;
+  reservationToken?: string; // 예약 취소용 토큰 (예약 생성 시에만 포함)
 }

@@ -4,10 +4,25 @@
 
 예약 생성, 취소, 상태 전이, 조회 API입니다. 예약자가 초대 토큰을 사용하여 상담 슬롯에 예약을 생성하고 취소할 수 있고, Admin은 예약 상태를 전이하고 슬롯별 예약 내역을 조회할 수 있습니다.
 
+## 필수 설정
+
+### 환경 변수 설정
+
+`apps/server/.env` 파일에 다음 환경 변수를 설정하세요:
+
+```env
+# ReservationToken 만료일 (일 단위, 기본값: 30일)
+RESERVATION_TOKEN_EXPIRES_DAYS=30
+```
+
+**참고**: 환경 변수가 설정되지 않은 경우 기본값 30일이 사용됩니다.
+
 **핵심 기능**:
 
-- 예약 생성: 동시성 제어, 정원 제한, 중복 예약 방지를 트랜잭션으로 보장
-- 예약 취소: Token 기반 인증, email 일치 확인, `booked_count` 자동 회복
+- 예약 생성: 동시성 제어, 정원 제한, 중복 예약 방지를 트랜잭션으로 보장, ReservationToken 자동 발급
+- 예약 취소:
+  - InviteToken 기반: email 일치 확인, `booked_count` 자동 회복
+  - ReservationToken 기반: 토큰 검증, `booked_count` 자동 회복, 멱등성 보장
 - 상태 전이: 멱등성 보장, `booked_count` 자동 관리
 - 슬롯별 예약 조회: Admin이 슬롯 클릭 시 예약자 리스트 확인
 
@@ -53,11 +68,14 @@
     "status": "BOOKED",
     "createdAt": "2025-01-10T10:00:00.000Z",
     "updatedAt": "2025-01-10T10:00:00.000Z",
-    "cancelledAt": null
+    "cancelledAt": null,
+    "reservationToken": "a1b2c3d4e5f6..."
   },
   "message": "예약이 생성되었습니다."
 }
 ```
+
+**참고**: 예약 생성 시 `reservationToken`이 응답에 포함됩니다. 이 토큰은 예약 취소용으로 사용할 수 있습니다 (기본 만료일: 30일).
 
 **동작 방식:**
 
@@ -68,6 +86,7 @@
    - 원자적 UPDATE로 `booked_count` 증가
    - 예약 INSERT
    - UNIQUE 충돌 시 롤백
+5. ReservationToken 자동 발급 (예약 취소용, 기본 만료일: 30일)
 
 **에러 응답:**
 
@@ -132,6 +151,60 @@
 - `401 Unauthorized`: 유효하지 않거나 만료된 토큰
 - `403 Forbidden`: 본인의 예약이 아님 (email 불일치)
 - `404 Not Found`: 예약을 찾을 수 없음
+
+### POST /api/public/reservations/cancel?token=...
+
+예약 취소 API (Public 엔드포인트 - ReservationToken 기반)
+
+**인증**: 불필요 (ReservationToken 기반 인증)
+
+**Query Parameters:**
+
+- `token` (required): ReservationToken (예약 생성 시 발급된 토큰)
+
+**Request Example:**
+
+```
+POST /api/public/reservations/cancel?token=a1b2c3d4e5f6...
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "reservation-uuid",
+    "slotId": "slot-uuid",
+    "email": "client@example.com",
+    "name": "홍길동",
+    "note": "첫 상담입니다",
+    "status": "CANCELLED",
+    "createdAt": "2025-01-10T10:00:00.000Z",
+    "updatedAt": "2025-01-10T11:00:00.000Z",
+    "cancelledAt": "2025-01-10T11:00:00.000Z"
+  },
+  "message": "예약이 취소되었습니다."
+}
+```
+
+**동작 방식:**
+
+1. ReservationToken 검증 (토큰 존재 및 만료 확인)
+2. 예약 조회 (토큰의 reservationId로)
+3. 예약 상태 확인 (이미 취소된 경우 멱등하게 현재 상태 반환)
+4. 상태 전이 (DEV-54 로직 재사용):
+   - `WHERE status='BOOKED'` 조건으로 멱등하게 처리
+   - UPDATE 결과가 0이면 아무것도 하지 않음 (이미 CANCELLED)
+   - UPDATE 결과가 1이면 `booked_count - 1` (슬롯 잔여 인원 회복)
+   - `cancelledAt` 자동 기록
+
+**에러 응답:**
+
+- `400 Bad Request`: 토큰 파라미터 없음, 예약 취소 실패
+- `404 Not Found`: 유효하지 않거나 만료된 토큰, 예약을 찾을 수 없음
+
+**참고**: 이 API는 ReservationToken 기반 취소입니다. InviteToken 기반 취소는 `POST /api/public/reservations/:id/cancel`을 사용하세요.
 
 ### PATCH /api/admin/reservations/:id/status
 
@@ -735,11 +808,15 @@ try {
 
 ## 보안 고려사항
 
-1. **Token 기반 인증**: 초대 토큰으로만 예약 가능
+1. **Token 기반 인증**:
+   - InviteToken: 예약 페이지 접근 및 예약 생성용
+   - ReservationToken: 예약 취소 전용 (예약 생성 시 자동 발급)
 2. **권한 확인**: token의 상담사와 슬롯의 상담사 일치 확인
 3. **Email 정규화**: SQL injection 방지 및 데이터 일관성
 4. **트랜잭션**: 원자적 연산으로 데이터 정합성 보장
 5. **UNIQUE 제약**: 데이터베이스 레벨에서 중복 방지
+6. **토큰 만료**: ReservationToken은 기본 30일 후 만료 (환경 변수로 설정 가능)
+7. **멱등성**: 중복 취소 호출해도 안전하게 처리
 
 ## 성능 고려사항
 

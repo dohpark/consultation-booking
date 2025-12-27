@@ -6,7 +6,9 @@ import {
   ForbiddenException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ReservationsRepository } from './reservations.repository';
+import { ReservationTokensRepository } from './reservation-tokens.repository';
 import { InvitationsService } from '../invitations/invitations.service';
 import { CreateReservationDto } from './dto/create-reservation.dto';
 import { CancelReservationDto } from './dto/cancel-reservation.dto';
@@ -21,7 +23,9 @@ import { ValidateTokenResponseDto } from '../invitations/dto/validate-token-resp
 export class ReservationsService {
   constructor(
     private readonly reservationsRepository: ReservationsRepository,
+    private readonly reservationTokensRepository: ReservationTokensRepository,
     private readonly invitationsService: InvitationsService,
+    private readonly configService: ConfigService,
   ) {}
 
   /**
@@ -65,7 +69,20 @@ export class ReservationsService {
         note: dto.note,
       });
 
-      return this.toResponseDto(reservation);
+      // 6. ReservationToken 발급 (예약 생성 성공 시)
+      const defaultExpiresInDays = this.configService.get<number>('RESERVATION_TOKEN_EXPIRES_DAYS') || 30;
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + defaultExpiresInDays);
+
+      const reservationToken = await this.reservationTokensRepository.createOrUpdateReservationToken(
+        reservation.id,
+        expiresAt,
+      );
+
+      // 예약 생성 시에만 ReservationToken 포함
+      const response = this.toResponseDto(reservation);
+      response.reservationToken = reservationToken.token;
+      return response;
     } catch (error) {
       // Repository에서 던진 에러 처리
       if (error instanceof Error) {
@@ -85,7 +102,7 @@ export class ReservationsService {
   }
 
   /**
-   * 예약 취소 (Public API)
+   * 예약 취소 (Public API - InviteToken 기반)
    * token 기반으로 "내 예약 취소" 제공
    * - token이 유효하고, reservation의 email과 일치해야만 취소 가능
    * - 취소 성공 시 슬롯 잔여 인원 회복 (DEV-54 로직 사용)
@@ -117,6 +134,57 @@ export class ReservationsService {
     }
 
     // 4. 상태 전이 (DEV-54 로직 재사용)
+    try {
+      const result = await this.reservationsRepository.transitionReservationStatus(reservationId, 'CANCELLED');
+
+      if (!result.reservation) {
+        throw new NotFoundException('예약을 찾을 수 없습니다.');
+      }
+
+      return this.toResponseDto(result.reservation);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      if (error instanceof Error) {
+        switch (error.message) {
+          case 'RESERVATION_NOT_FOUND':
+            throw new NotFoundException('예약을 찾을 수 없습니다.');
+          default:
+            throw new BadRequestException('예약 취소에 실패했습니다.');
+        }
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * 예약 취소 (Public API - ReservationToken 기반)
+   * ReservationToken으로 예약을 찾고 취소
+   * - 토큰이 유효하고 만료되지 않았는지 확인
+   * - 취소 성공 시 슬롯 잔여 인원 회복 (DEV-54 로직 사용)
+   * - 중복 취소 호출해도 멱등하게 동작
+   */
+  async cancelReservationByToken(token: string): Promise<ReservationResponseDto> {
+    // 1. ReservationToken 검증
+    const reservationToken = await this.reservationTokensRepository.validateToken(token);
+    if (!reservationToken) {
+      throw new NotFoundException('유효하지 않거나 만료된 토큰입니다.');
+    }
+
+    const reservationId = reservationToken.reservation.id;
+
+    // 2. 예약 상태 확인 (이미 취소된 경우 멱등하게 처리)
+    if (reservationToken.reservation.status !== 'BOOKED') {
+      // 이미 취소되었거나 완료된 예약인 경우 현재 상태 반환
+      const reservation = await this.reservationsRepository.findById(reservationId);
+      if (!reservation) {
+        throw new NotFoundException('예약을 찾을 수 없습니다.');
+      }
+      return this.toResponseDto(reservation);
+    }
+
+    // 3. 상태 전이 (DEV-54 로직 재사용 - 멱등성 보장)
     try {
       const result = await this.reservationsRepository.transitionReservationStatus(reservationId, 'CANCELLED');
 
@@ -253,7 +321,7 @@ export class ReservationsService {
   /**
    * Reservation을 ReservationResponseDto로 변환
    */
-  private toResponseDto(reservation: Reservation): ReservationResponseDto {
+  private toResponseDto(reservation: Reservation, reservationToken?: string): ReservationResponseDto {
     return {
       id: reservation.id,
       slotId: reservation.slotId,
@@ -264,6 +332,7 @@ export class ReservationsService {
       createdAt: reservation.createdAt,
       updatedAt: reservation.updatedAt,
       cancelledAt: reservation.cancelledAt ?? undefined, // null을 undefined로 변환
+      reservationToken, // 예약 생성 시에만 포함
     };
   }
 }
