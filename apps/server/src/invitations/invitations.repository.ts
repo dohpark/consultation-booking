@@ -1,18 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { InviteToken, Prisma } from '@prisma/client';
+import { InviteToken } from '@prisma/client';
 import { randomBytes } from 'crypto';
 
-type InviteTokenWithCounselor = Prisma.InviteTokenGetPayload<{
-  include: {
-    counselor: {
-      select: {
-        id: true;
-        email: true;
-      };
-    };
+type InviteTokenWithCounselor = {
+  id: string;
+  counselorId: string;
+  token: string;
+  clientEmail: string;
+  expiresAt: Date;
+  createdAt: Date;
+  counselor: {
+    id: string;
+    email: string;
   };
-}>;
+};
 
 @Injectable()
 export class InvitationsRepository {
@@ -21,7 +23,7 @@ export class InvitationsRepository {
   /**
    * 토큰 생성 (기존 토큰이 있으면 재발급)
    */
-  async createOrUpdateInviteToken(counselorId: string, expiresAt: Date): Promise<InviteToken> {
+  async createOrUpdateInviteToken(counselorId: string, clientEmail: string, expiresAt: Date): Promise<InviteToken> {
     // 기존 토큰이 있으면 삭제 후 새로 생성 (재발급)
     await this.prisma.inviteToken.deleteMany({
       where: { counselorId },
@@ -34,8 +36,9 @@ export class InvitationsRepository {
       data: {
         counselorId,
         token,
+        clientEmail: clientEmail.toLowerCase().trim(),
         expiresAt,
-      },
+      } as Parameters<typeof this.prisma.inviteToken.create>[0]['data'],
     });
   }
 
@@ -43,7 +46,7 @@ export class InvitationsRepository {
    * 토큰으로 조회 및 검증
    */
   async validateToken(token: string): Promise<InviteTokenWithCounselor | null> {
-    const inviteToken = await this.prisma.inviteToken.findUnique({
+    const inviteToken = (await this.prisma.inviteToken.findUnique({
       where: { token },
       include: {
         counselor: {
@@ -53,7 +56,7 @@ export class InvitationsRepository {
           },
         },
       },
-    });
+    })) as InviteTokenWithCounselor | null;
 
     if (!inviteToken) {
       return null;

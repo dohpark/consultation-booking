@@ -32,7 +32,11 @@ export class InvitationsService {
     expiresAt.setDate(expiresAt.getDate() + expiresIn);
 
     // 토큰 생성 (기존 토큰이 있으면 재발급)
-    const inviteToken = await this.invitationsRepository.createOrUpdateInviteToken(counselorId, expiresAt);
+    const inviteToken = await this.invitationsRepository.createOrUpdateInviteToken(
+      counselorId,
+      normalizedEmail,
+      expiresAt,
+    );
 
     // 프론트엔드 URL 가져오기 (환경변수 또는 기본값)
     const frontendUrl = this.configService.get<string>('APPLICANT_FRONTEND_URL') || 'http://localhost:5173';
@@ -77,7 +81,7 @@ export class InvitationsService {
     }
 
     return {
-      email: inviteToken.counselor.email,
+      email: inviteToken.clientEmail, // 예약자 이메일 반환
       counselorId: inviteToken.counselor.id,
       expiresAt: inviteToken.expiresAt,
     };

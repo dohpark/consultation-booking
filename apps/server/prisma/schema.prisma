@@ -82,6 +82,7 @@ model InviteToken {
   id          String   @id @default(uuid())
   counselorId String   @map("counselor_id")
   token       String   @unique
+  clientEmail String   @map("client_email") // 예약자 이메일 (required)
   expiresAt   DateTime @map("expires_at")
   createdAt   DateTime @default(now()) @map("created_at")
 
@@ -90,6 +91,7 @@ model InviteToken {
 
   // Indexes
   @@index([expiresAt]) // 만료된 토큰 정리 쿼리 최적화
+  @@index([clientEmail]) // 예약자 이메일 조회 최적화
   @@map("invite_tokens")
 }
 

@@ -26,7 +26,7 @@ export default function Booking() {
 
   const createReservationMutation = useCreateReservation();
 
-  // 토큰에서 이메일 정보 가져오기
+  // 토큰에서 예약자 이메일 정보 가져오기
   const { data: tokenInfo } = useValidateToken(token);
 
   // 오늘 날짜 및 유효 범위 메모이제이션 (무한 루프 방지 핵심)

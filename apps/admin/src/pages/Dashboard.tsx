@@ -23,7 +23,7 @@ const Dashboard = () => {
   const { slots, isLoading, refreshSlots } = useSlotsQuery(currentDate);
   const createSlotMutation = useCreateSlot();
   const deleteSlotMutation = useDeleteSlot();
-  const { reservations, cancelReservation, editReservation } = useReservations();
+  const { reservations, cancelReservation, editReservation, refreshReservations } = useReservations({ slots });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isDateRangeModalOpen, setIsDateRangeModalOpen] = useState(false);
