@@ -1,9 +1,11 @@
-import { Controller, Patch, Param, Body, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Patch, Param, Body, Query, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { ReservationsService } from './reservations.service';
 import { AdminRoleGuard } from '../auth/guards/admin-role.guard';
 import { TransitionReservationDto } from './dto/transition-reservation.dto';
+import { GetClientHistoryDto } from './dto/get-client-history.dto';
 import { ApiResponse } from '../common/dto/response.dto';
 import { ReservationResponseDto } from './dto/reservation-response.dto';
+import { ClientHistoryResponseDto } from './dto/client-history-response.dto';
 
 /**
  * Admin 전용 예약 관리 API
@@ -12,6 +14,16 @@ import { ReservationResponseDto } from './dto/reservation-response.dto';
 @UseGuards(AdminRoleGuard)
 export class ReservationsController {
   constructor(private readonly reservationsService: ReservationsService) {}
+
+  /**
+   * GET /admin/reservations?email=...&status=...&cursor=...&limit=...
+   * 상담자 내역 조회 (커서 기반 페이지네이션)
+   */
+  @Get()
+  async getClientHistory(@Query() dto: GetClientHistoryDto): Promise<ApiResponse<ClientHistoryResponseDto>> {
+    const result = await this.reservationsService.getClientHistory(dto);
+    return ApiResponse.success(result);
+  }
 
   /**
    * PATCH /admin/reservations/:id/status

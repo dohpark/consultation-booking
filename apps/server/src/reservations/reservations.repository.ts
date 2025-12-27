@@ -204,4 +204,112 @@ export class ReservationsRepository {
       },
     );
   }
+
+  /**
+   * 상담자 내역 조회 (커서 기반 페이지네이션)
+   * email 인덱스 활용하여 성능 최적화
+   * hasNote 포함 (consultation_notes 조인)
+   */
+  async findClientHistory(params: {
+    email: string;
+    status?: 'BOOKED' | 'CANCELLED' | 'COMPLETED';
+    cursor?: string; // createdAt timestamp
+    limit: number;
+  }): Promise<{
+    items: Array<
+      Reservation & {
+        slot: {
+          startAt: Date;
+          endAt: Date;
+          counselor: {
+            name: string;
+          };
+        };
+        consultationNote: { id: string } | null;
+      }
+    >;
+    hasMore: boolean;
+  }> {
+    const normalizedEmail = params.email.toLowerCase().trim();
+
+    // 커서 파싱 (ISO 8601 또는 timestamp)
+    let cursorDate: Date | undefined;
+    if (params.cursor) {
+      try {
+        // ISO 8601 형식 시도
+        cursorDate = new Date(params.cursor);
+        if (isNaN(cursorDate.getTime())) {
+          // timestamp 형식 시도
+          cursorDate = new Date(parseInt(params.cursor, 10));
+        }
+        if (isNaN(cursorDate.getTime())) {
+          cursorDate = undefined;
+        }
+      } catch {
+        cursorDate = undefined;
+      }
+    }
+
+    // WHERE 조건 구성
+    const where: Prisma.ReservationWhereInput = {
+      email: normalizedEmail,
+    };
+
+    if (params.status) {
+      where.status = params.status;
+    }
+
+    if (cursorDate) {
+      where.createdAt = {
+        lt: cursorDate, // 커서보다 이전 데이터만 조회 (내림차순이므로)
+      };
+    }
+
+    // limit + 1로 조회하여 hasMore 판단
+    const take = params.limit + 1;
+
+    const reservations = await this.prisma.reservation.findMany({
+      where,
+      take,
+      orderBy: {
+        createdAt: 'desc', // 최신순
+      },
+      include: {
+        slot: {
+          include: {
+            counselor: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+        consultationNote: {
+          select: {
+            id: true,
+          },
+        },
+      },
+    });
+
+    // hasMore 판단
+    const hasMore = reservations.length > params.limit;
+    const items = hasMore ? reservations.slice(0, params.limit) : reservations;
+
+    return {
+      items: items as Array<
+        Reservation & {
+          slot: {
+            startAt: Date;
+            endAt: Date;
+            counselor: {
+              name: string;
+            };
+          };
+          consultationNote: { id: string } | null;
+        }
+      >,
+      hasMore,
+    };
+  }
 }

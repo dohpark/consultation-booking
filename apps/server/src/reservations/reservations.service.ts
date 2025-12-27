@@ -11,7 +11,9 @@ import { InvitationsService } from '../invitations/invitations.service';
 import { CreateReservationDto } from './dto/create-reservation.dto';
 import { CancelReservationDto } from './dto/cancel-reservation.dto';
 import { TransitionReservationDto } from './dto/transition-reservation.dto';
+import { GetClientHistoryDto } from './dto/get-client-history.dto';
 import { ReservationResponseDto } from './dto/reservation-response.dto';
+import { ClientHistoryResponseDto, ClientHistoryItemDto } from './dto/client-history-response.dto';
 import { Reservation } from '@prisma/client';
 import { ValidateTokenResponseDto } from '../invitations/dto/validate-token-response.dto';
 
@@ -194,6 +196,58 @@ export class ReservationsService {
     const reservations = await this.reservationsRepository.findBySlotId(slotId);
 
     return reservations.map(reservation => this.toResponseDto(reservation));
+  }
+
+  /**
+   * 상담자 내역 조회 (Admin API)
+   * - email 인덱스 활용하여 성능 최적화
+   * - 커서 기반 페이지네이션
+   * - hasNote 포함
+   */
+  async getClientHistory(dto: GetClientHistoryDto): Promise<ClientHistoryResponseDto> {
+    // limit을 number로 변환 (Query 파라미터는 문자열로 옴)
+    const limit = dto.limit ? Number(dto.limit) : 20;
+    if (isNaN(limit) || limit < 1 || limit > 50) {
+      throw new BadRequestException('페이지 크기는 1 이상 50 이하여야 합니다.');
+    }
+
+    const result = await this.reservationsRepository.findClientHistory({
+      email: dto.email,
+      status: dto.status,
+      cursor: dto.cursor,
+      limit,
+    });
+
+    // DTO 변환
+    const items: ClientHistoryItemDto[] = result.items.map(item => ({
+      id: item.id,
+      slotId: item.slotId,
+      email: item.email,
+      name: item.name,
+      status: item.status,
+      slot: {
+        startAt: item.slot.startAt,
+        endAt: item.slot.endAt,
+        counselor: {
+          name: item.slot.counselor.name,
+        },
+      },
+      hasNote: item.consultationNote !== null,
+      createdAt: item.createdAt,
+    }));
+
+    // nextCursor 계산 (마지막 항목의 createdAt)
+    let nextCursor: string | undefined;
+    if (result.hasMore && items.length > 0) {
+      const lastItem = items[items.length - 1];
+      nextCursor = lastItem.createdAt.toISOString();
+    }
+
+    return {
+      items,
+      nextCursor,
+      hasMore: result.hasMore,
+    };
   }
 
   /**
