@@ -22,11 +22,17 @@ export class InvitationsRepository {
 
   /**
    * 토큰 생성 (기존 토큰이 있으면 재발급)
+   * 같은 상담자 + 같은 이메일 조합의 토큰만 재발급
    */
   async createOrUpdateInviteToken(counselorId: string, clientEmail: string, expiresAt: Date): Promise<InviteToken> {
     // 기존 토큰이 있으면 삭제 후 새로 생성 (재발급)
+    // 같은 상담자 + 같은 이메일 조합의 토큰만 삭제 (다른 이메일의 토큰은 유지)
+    const normalizedEmail = clientEmail.toLowerCase().trim();
     await this.prisma.inviteToken.deleteMany({
-      where: { counselorId },
+      where: {
+        counselorId,
+        clientEmail: normalizedEmail,
+      },
     });
 
     // 랜덤 토큰 생성 (32바이트 = 64자리 hex 문자열)
