@@ -1,92 +1,41 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { fetchSlots } from '../services/slotsService';
 import type { Slot } from '../types';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 
-// 테스트용 더미 슬롯 데이터 (예약이 있는 슬롯 포함)
-const generateDummySlots = (): Slot[] => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+export function useSlots(currentDate?: Date) {
+  const [slots, setSlots] = useState<Slot[]>([]);
+  const [isLoading, setIsLoading] = useState(true); // 초기 로딩 상태를 true로 설정
+  const [error, setError] = useState<Error | null>(null);
 
-  const slots: Slot[] = [];
+  const loadSlots = useCallback(async (date: Date) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const monthStart = startOfMonth(date);
+      const monthEnd = endOfMonth(date);
+      const from = format(monthStart, 'yyyy-MM-dd');
+      const to = format(monthEnd, 'yyyy-MM-dd');
 
-  // 오늘 날짜의 슬롯들 (예약이 있는 슬롯 포함)
-  const todayStr = today.toISOString().split('T')[0];
+      const fetchedSlots = await fetchSlots({ from, to });
+      setSlots(fetchedSlots);
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('슬롯 조회에 실패했습니다.');
+      setError(error);
+      console.error('슬롯 조회 실패:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
-  // 10:00 슬롯 (예약 2명)
-  slots.push({
-    id: `slot-${todayStr}-10-0`,
-    counselorId: 'test-counselor',
-    startAt: `${todayStr}T10:00:00`,
-    endAt: `${todayStr}T10:30:00`,
-    capacity: 3,
-    bookedCount: 2,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  });
-
-  // 10:30 슬롯 (예약 1명)
-  slots.push({
-    id: `slot-${todayStr}-10-30`,
-    counselorId: 'test-counselor',
-    startAt: `${todayStr}T10:30:00`,
-    endAt: `${todayStr}T11:00:00`,
-    capacity: 3,
-    bookedCount: 1,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  });
-
-  // 15:00 슬롯 (예약 3명 - 만석)
-  slots.push({
-    id: `slot-${todayStr}-15-0`,
-    counselorId: 'test-counselor',
-    startAt: `${todayStr}T15:00:00`,
-    endAt: `${todayStr}T15:30:00`,
-    capacity: 3,
-    bookedCount: 3,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  });
-
-  // 내일 날짜의 슬롯들
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowStr = tomorrow.toISOString().split('T')[0];
-
-  // 14:00 슬롯 (예약 2명)
-  slots.push({
-    id: `slot-${tomorrowStr}-14-0`,
-    counselorId: 'test-counselor',
-    startAt: `${tomorrowStr}T14:00:00`,
-    endAt: `${tomorrowStr}T14:30:00`,
-    capacity: 3,
-    bookedCount: 2,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  });
-
-  // 모레 날짜의 슬롯들
-  const dayAfterTomorrow = new Date(today);
-  dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
-  const dayAfterTomorrowStr = dayAfterTomorrow.toISOString().split('T')[0];
-
-  // 16:00 슬롯 (예약 1명)
-  slots.push({
-    id: `slot-${dayAfterTomorrowStr}-16-0`,
-    counselorId: 'test-counselor',
-    startAt: `${dayAfterTomorrowStr}T16:00:00`,
-    endAt: `${dayAfterTomorrowStr}T16:30:00`,
-    capacity: 3,
-    bookedCount: 1,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  });
-
-  return slots;
-};
-
-export function useSlots() {
-  const [slots, setSlots] = useState<Slot[]>(generateDummySlots());
-  const [isLoading, setIsLoading] = useState(false);
+  useEffect(() => {
+    if (currentDate) {
+      loadSlots(currentDate);
+    } else {
+      // currentDate가 없으면 로딩 상태 해제
+      setIsLoading(false);
+    }
+  }, [currentDate, loadSlots]);
 
   const addSlot = (slot: Slot) => {
     setSlots(prev => [...prev, slot]);
@@ -100,13 +49,20 @@ export function useSlots() {
     setSlots(prev => prev.filter(slot => slot.id !== id));
   };
 
+  const refreshSlots = useCallback(() => {
+    if (currentDate) {
+      loadSlots(currentDate);
+    }
+  }, [currentDate, loadSlots]);
+
   return {
     slots,
     isLoading,
-    setIsLoading,
+    error,
     addSlot,
     updateSlot,
     removeSlot,
+    refreshSlots,
     setSlots,
   };
 }

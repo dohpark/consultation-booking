@@ -4,26 +4,27 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 const getApiEndpoint = (path: string) => `${API_URL}/api${path}`;
 
 export const SLOTS_ENDPOINTS = {
-  LIST: getApiEndpoint('/slots'),
+  LIST: getApiEndpoint('/admin/slots'),
   CREATE: getApiEndpoint('/admin/slots'),
   GET: (id: string) => getApiEndpoint(`/slots/${id}`),
   UPDATE: (id: string) => getApiEndpoint(`/slots/${id}`),
   DELETE: (id: string) => getApiEndpoint(`/slots/${id}`),
 } as const;
 
-export async function fetchSlots(params?: { startDate?: string; endDate?: string }): Promise<Slot[]> {
+export async function fetchSlots(params: { from: string; to: string }): Promise<Slot[]> {
   const queryParams = new URLSearchParams();
-  if (params?.startDate) queryParams.append('startDate', params.startDate);
-  if (params?.endDate) queryParams.append('endDate', params.endDate);
+  queryParams.append('from', params.from);
+  queryParams.append('to', params.to);
 
-  const url = queryParams.toString() ? `${SLOTS_ENDPOINTS.LIST}?${queryParams}` : SLOTS_ENDPOINTS.LIST;
+  const url = `${SLOTS_ENDPOINTS.LIST}?${queryParams}`;
 
   const response = await fetch(url, {
     credentials: 'include',
   });
 
   if (!response.ok) {
-    throw new Error('Failed to fetch slots');
+    const error = await response.json().catch(() => ({ message: '슬롯 조회에 실패했습니다.' }));
+    throw new Error(error.message || '슬롯 조회에 실패했습니다.');
   }
 
   const data = await response.json();
@@ -43,12 +44,12 @@ export async function createSlot(dto: CreateSlotDto): Promise<Slot> {
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: '슬롯 생성에 실패했습니다.' }));
     const errorMessage = error.message || '슬롯 생성에 실패했습니다.';
-    
+
     // 409 Conflict: 중복 슬롯
     if (response.status === 409) {
       throw new Error('이미 존재하는 슬롯입니다.');
     }
-    
+
     throw new Error(errorMessage);
   }
 

@@ -44,13 +44,50 @@ export function CalendarMonthView({
 
   // 슬롯 변경 시 이미 렌더링된 날짜 셀의 시간대 요약 업데이트
   useEffect(() => {
-    // dayEventRootsRef에 저장된 모든 날짜 셀 업데이트
-    dayEventRootsRef.current.forEach((root, dateKey) => {
-      const daySlots = slotsByDate[dateKey] || [];
-      // 기존 Root를 사용하여 새로운 데이터로 다시 렌더링
-      root.render(<TimeRangeSummary slots={daySlots} />);
-    });
-  }, [slotsByDate]);
+    if (!calendarRef.current) return;
+
+    // FullCalendar API를 사용하여 현재 보이는 모든 날짜 셀 찾기
+    const calendarApi = calendarRef.current.getApi();
+    const view = calendarApi.view;
+    const start = view.activeStart;
+    const end = view.activeEnd;
+
+    // 현재 보이는 날짜 범위의 모든 날짜 셀 업데이트
+    const currentDate = new Date(start);
+    while (currentDate < end) {
+      const dateKey = format(currentDate, 'yyyy-MM-dd');
+      const root = dayEventRootsRef.current.get(dateKey);
+      
+      if (root) {
+        // 이미 마운트된 날짜 셀 업데이트
+        const daySlots = slotsByDate[dateKey] || [];
+        root.render(<TimeRangeSummary slots={daySlots} />);
+      } else {
+        // 아직 마운트되지 않은 날짜 셀은 DOM에서 찾아서 업데이트
+        const dayEl = calendarApi.el.querySelector(`[data-date="${dateKey}"]`) as HTMLElement;
+        if (dayEl) {
+          const dayEventsEl = dayEl.querySelector('.fc-daygrid-day-events') as HTMLElement;
+          if (dayEventsEl) {
+            // 기존 컨테이너 제거
+            const existingContainer = dayEventsEl.querySelector('div');
+            if (existingContainer && existingContainer.parentElement === dayEventsEl) {
+              dayEventsEl.removeChild(existingContainer);
+            }
+
+            // 새 컨테이너 생성 및 렌더링
+            const container = document.createElement('div');
+            dayEventsEl.appendChild(container);
+            const root = createRoot(container);
+            const daySlots = slotsByDate[dateKey] || [];
+            root.render(<TimeRangeSummary slots={daySlots} />);
+            dayEventRootsRef.current.set(dateKey, root);
+          }
+        }
+      }
+
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+  }, [slotsByDate, calendarRef]);
 
   // 날짜 셀 커스텀 렌더링 (day-top 영역만)
   const renderDayCellContent = useCallback((arg: DayCellContentArg) => {
@@ -162,32 +199,34 @@ export function CalendarMonthView({
   );
 
   return (
-    <div className="flex-1">
+    <div className="flex-1 relative">
+      <FullCalendar
+        ref={calendarRef}
+        plugins={[dayGridPlugin, interactionPlugin]}
+        initialView="dayGridMonth"
+        headerToolbar={false}
+        locale={koLocale}
+        selectable={isEditSlotsMode} // 예약 시간 수정 모드에서만 드래그 가능
+        selectMirror={isEditSlotsMode} // 드래그 시 하이라이트 표시
+        weekends={true}
+        select={handleDateSelect}
+        dateClick={handleDateClick}
+        dayCellContent={renderDayCellContent}
+        dayCellDidMount={handleDayCellMount}
+        dayCellWillUnmount={handleDayCellUnmount}
+        height="auto"
+        dayMaxEvents={false}
+        moreLinkClick="popover"
+        datesSet={handleDatesSet}
+      />
       {isLoading ? (
-        <div className="flex items-center justify-center h-full">
-          <div className="text-text-secondary">로딩 중...</div>
+        <div className="absolute inset-0 flex items-center justify-center bg-bg-primary/50 z-10">
+          <div className="flex flex-col items-center gap-2">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <div className="text-text-secondary text-sm">슬롯을 불러오는 중...</div>
+          </div>
         </div>
-      ) : (
-        <FullCalendar
-          ref={calendarRef}
-          plugins={[dayGridPlugin, interactionPlugin]}
-          initialView="dayGridMonth"
-          headerToolbar={false}
-          locale={koLocale}
-          selectable={isEditSlotsMode} // 예약 시간 수정 모드에서만 드래그 가능
-          selectMirror={isEditSlotsMode} // 드래그 시 하이라이트 표시
-          weekends={true}
-          select={handleDateSelect}
-          dateClick={handleDateClick}
-          dayCellContent={renderDayCellContent}
-          dayCellDidMount={handleDayCellMount}
-          dayCellWillUnmount={handleDayCellUnmount}
-          height="auto"
-          dayMaxEvents={false}
-          moreLinkClick="popover"
-          datesSet={handleDatesSet}
-        />
-      )}
+      ) : null}
     </div>
   );
 }

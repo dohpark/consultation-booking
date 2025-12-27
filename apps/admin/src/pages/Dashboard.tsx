@@ -19,9 +19,9 @@ import type { Slot } from '../domains/slots/types';
 
 const Dashboard = () => {
   const { showToast } = useToast();
-  const { slots, isLoading, addSlot, removeSlot } = useSlots();
-  const { reservations, cancelReservation, editReservation } = useReservations();
   const [currentDate, setCurrentDate] = useState(new Date());
+  const { slots, isLoading, addSlot, removeSlot, refreshSlots } = useSlots(currentDate);
+  const { reservations, cancelReservation, editReservation } = useReservations();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isDateRangeModalOpen, setIsDateRangeModalOpen] = useState(false);
@@ -46,6 +46,8 @@ const Dashboard = () => {
       });
       addSlot(newSlot);
       showToast('슬롯이 생성되었습니다.', 'success');
+      // 슬롯 목록 갱신 (현재 월의 슬롯 다시 불러오기)
+      refreshSlots();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '슬롯 생성에 실패했습니다.';
       showToast(errorMessage, 'error');
@@ -178,6 +180,8 @@ const Dashboard = () => {
       }
       if (addedSlots.length > 0) {
         showToast(`${addedSlots.length}개의 슬롯이 생성되었습니다.`, 'success');
+        // 슬롯 목록 갱신 (현재 월의 슬롯 다시 불러오기)
+        refreshSlots();
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '슬롯 생성에 실패했습니다.';
