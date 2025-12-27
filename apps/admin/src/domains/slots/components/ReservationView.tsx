@@ -1,6 +1,6 @@
 import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { Trash2, Edit2 } from 'lucide-react';
+import { Trash2, Edit2, History } from 'lucide-react';
 import type { Slot, Reservation } from '../types';
 
 interface ReservationViewProps {
@@ -9,6 +9,7 @@ interface ReservationViewProps {
   reservations: Reservation[];
   onCancelReservation?: (reservationId: string) => void;
   onEditReservation?: (reservation: Reservation) => void;
+  onViewClientHistory?: (email: string, name: string) => void;
 }
 
 export function ReservationView({
@@ -17,6 +18,7 @@ export function ReservationView({
   reservations,
   onCancelReservation,
   onEditReservation,
+  onViewClientHistory,
 }: ReservationViewProps) {
   const dateKey = format(selectedDate, 'yyyy-MM-dd');
   const daySlots = slots.filter(slot => {
@@ -81,6 +83,15 @@ export function ReservationView({
                       {reservation.note && <div className="text-sm text-text-tertiary mt-2">{reservation.note}</div>}
                     </div>
                     <div className="flex items-center gap-2 ml-4">
+                      {onViewClientHistory && (
+                        <button
+                          onClick={() => onViewClientHistory(reservation.email, reservation.name)}
+                          className="p-2 text-text-secondary hover:text-primary transition-colors"
+                          aria-label="상담 내역 조회"
+                        >
+                          <History size={18} />
+                        </button>
+                      )}
                       {onEditReservation && (
                         <button
                           onClick={() => onEditReservation(reservation)}

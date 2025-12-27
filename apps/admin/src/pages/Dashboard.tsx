@@ -1,5 +1,4 @@
 import { useRef, useState } from 'react';
-import { Plus } from 'lucide-react';
 import type FullCalendar from '@fullcalendar/react';
 import { useSlotsQuery } from '../domains/slots/hooks/useSlotsQuery';
 import { useCreateSlot, useDeleteSlot } from '../domains/slots/hooks/useSlotMutations';
@@ -14,6 +13,7 @@ import { DateRangeConfirmModal } from '../domains/slots/components/DateRangeConf
 import { ReservationBlockedModal } from '../domains/slots/components/ReservationBlockedModal';
 import { ReservationView } from '../domains/slots/components/ReservationView';
 import { SlotEditView } from '../domains/slots/components/SlotEditView';
+import { ClientHistoryModal } from '../domains/slots/components/ClientHistoryModal';
 import { eachDayOfInterval, startOfDay, endOfDay, format, parseISO } from 'date-fns';
 import type { Slot } from '../domains/slots/types';
 
@@ -23,7 +23,7 @@ const Dashboard = () => {
   const { slots, isLoading, refreshSlots } = useSlotsQuery(currentDate);
   const createSlotMutation = useCreateSlot();
   const deleteSlotMutation = useDeleteSlot();
-  const { reservations, cancelReservation, editReservation, refreshReservations } = useReservations({ slots });
+  const { reservations, cancelReservation, editReservation } = useReservations({ slots });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isDateRangeModalOpen, setIsDateRangeModalOpen] = useState(false);
@@ -31,6 +31,9 @@ const Dashboard = () => {
   const [isReservationBlockedModalOpen, setIsReservationBlockedModalOpen] = useState(false);
   const [pendingFilteredDateRange, setPendingFilteredDateRange] = useState<{ start: Date; end: Date } | null>(null);
   const [excludedDates, setExcludedDates] = useState<Date[]>([]);
+  const [isClientHistoryModalOpen, setIsClientHistoryModalOpen] = useState(false);
+  const [selectedClientEmail, setSelectedClientEmail] = useState<string>('');
+  const [selectedClientName, setSelectedClientName] = useState<string>('');
   const calendarRef = useRef<FullCalendar>(null);
   const { handlePrev, handleNext, handleToday } = useCalendarNavigation(calendarRef);
   const { mode, toggleViewReservations, toggleEditSlots } = useCalendarMode();
@@ -125,6 +128,13 @@ const Dashboard = () => {
     setIsModalOpen(false);
     setSelectedDate(null);
     setSelectedDateRange(null);
+  };
+
+  // 클라이언트 내역 조회 핸들러
+  const handleViewClientHistory = (email: string, name: string) => {
+    setSelectedClientEmail(email);
+    setSelectedClientName(name);
+    setIsClientHistoryModalOpen(true);
   };
 
   // 슬롯에 예약이 있는지 확인
@@ -237,10 +247,6 @@ const Dashboard = () => {
           <h1 className="text-2xl font-bold text-text-primary">상담 일정 관리</h1>
           <p className="text-text-secondary text-sm">슬롯을 추가하거나 예약을 관리하세요</p>
         </div>
-        <button className="btn-primary flex items-center justify-center gap-2">
-          <Plus size={20} />
-          <span>새 슬롯 추가</span>
-        </button>
       </div>
 
       {/* Calendar */}
@@ -280,6 +286,7 @@ const Dashboard = () => {
             reservations={reservations}
             onCancelReservation={cancelReservation}
             onEditReservation={editReservation}
+            onViewClientHistory={handleViewClientHistory}
           />
         ) : mode === 'editSlots' && selectedDate ? (
           <SlotEditView
@@ -307,6 +314,14 @@ const Dashboard = () => {
           onConfirm={handleConfirmDateRange}
         />
       )}
+
+      {/* Client History Modal */}
+      <ClientHistoryModal
+        isOpen={isClientHistoryModalOpen}
+        onClose={() => setIsClientHistoryModalOpen(false)}
+        clientEmail={selectedClientEmail}
+        clientName={selectedClientName}
+      />
 
       {/* Reservation Blocked Modal */}
       <ReservationBlockedModal
