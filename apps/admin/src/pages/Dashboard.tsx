@@ -6,7 +6,7 @@ import { useReservations } from '../domains/slots/hooks/useReservations';
 import { useCalendarNavigation } from '../domains/slots/hooks/useCalendarNavigation';
 import { useCalendarMode } from '../domains/slots/hooks/useCalendarMode';
 import { useToast } from '../shared/contexts/ToastContext';
-import { createSlot } from '../domains/slots/services/slotsService';
+import { createSlot, deleteSlot } from '../domains/slots/services/slotsService';
 import { CalendarHeader } from '../domains/slots/components/CalendarHeader';
 import { CalendarMonthView } from '../domains/slots/components/CalendarMonthView';
 import { DateDetailModal } from '../domains/slots/components/DateDetailModal';
@@ -168,35 +168,81 @@ const Dashboard = () => {
       });
     }
 
+    // 변경사항이 없으면 모달만 닫기
+    if (addedSlots.length === 0 && deletedSlotIds.length === 0) {
+      handleCloseModal();
+      return;
+    }
+
     // 추가할 슬롯들 생성 (API 호출)
-    try {
-      for (const { startAt, endAt } of addedSlots) {
+    const addedSuccess: Array<{ startAt: Date; endAt: Date }> = [];
+    const addedFailures: Array<{ startAt: Date; endAt: Date; error: string }> = [];
+
+    for (const slot of addedSlots) {
+      try {
         const newSlot = await createSlot({
-          startAt: startAt.toISOString(),
-          endAt: endAt.toISOString(),
+          startAt: slot.startAt.toISOString(),
+          endAt: slot.endAt.toISOString(),
           capacity: 3,
         });
         addSlot(newSlot);
+        addedSuccess.push(slot);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : '슬롯 생성에 실패했습니다.';
+        addedFailures.push({ ...slot, error: errorMessage });
       }
-      if (addedSlots.length > 0) {
-        showToast(`${addedSlots.length}개의 슬롯이 생성되었습니다.`, 'success');
-        // 슬롯 목록 갱신 (현재 월의 슬롯 다시 불러오기)
-        refreshSlots();
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : '슬롯 생성에 실패했습니다.';
-      showToast(errorMessage, 'error');
-      return; // 에러 발생 시 모달 닫지 않음
     }
 
-    // 삭제할 슬롯들 제거 (예약이 있는 슬롯은 보호)
-    // 삭제 기능은 아직 구현하지 않음
-    deletedSlotIds.forEach(slotId => {
+    // 추가 결과 토스트 표시
+    if (addedSuccess.length > 0) {
+      showToast(`${addedSuccess.length}개의 슬롯이 생성되었습니다.`, 'success');
+    }
+    if (addedFailures.length > 0) {
+      showToast(`${addedFailures.length}개의 슬롯 생성에 실패했습니다.`, 'error');
+    }
+
+    // 삭제할 슬롯들 제거 (API 호출)
+    // 예약이 있는 슬롯은 삭제하지 않음 (이미 필터링됨)
+    const validDeletedSlotIds = deletedSlotIds.filter(slotId => {
       const slot = slots.find(s => s.id === slotId);
-      if (slot && !hasReservations(slot)) {
-        removeSlot(slotId);
-      }
+      return slot && !hasReservations(slot);
     });
+
+    const deletedSuccess: string[] = [];
+    const deletedFailures: Array<{ slotId: string; error: string }> = [];
+
+    for (const slotId of validDeletedSlotIds) {
+      try {
+        await deleteSlot(slotId);
+        removeSlot(slotId);
+        deletedSuccess.push(slotId);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : '슬롯 삭제에 실패했습니다.';
+        deletedFailures.push({ slotId, error: errorMessage });
+      }
+    }
+
+    // 삭제 결과 토스트 표시
+    if (deletedSuccess.length > 0) {
+      showToast(`${deletedSuccess.length}개의 슬롯이 삭제되었습니다.`, 'success');
+    }
+    if (deletedFailures.length > 0) {
+      showToast(`${deletedFailures.length}개의 슬롯 삭제에 실패했습니다.`, 'error');
+    }
+
+    // 전체 실패 시 모달 닫지 않음
+    if (addedFailures.length > 0 || deletedFailures.length > 0) {
+      // 부분 실패는 모달을 닫지만, 사용자에게 알림은 이미 표시됨
+      // 모든 작업이 실패한 경우에만 모달을 유지
+      if (addedSuccess.length === 0 && deletedSuccess.length === 0) {
+        return; // 모든 작업 실패 시 모달 닫지 않음
+      }
+    }
+
+    // 성공한 작업이 있으면 슬롯 목록 갱신
+    if (addedSuccess.length > 0 || deletedSuccess.length > 0) {
+      refreshSlots();
+    }
 
     // 모달 닫기
     handleCloseModal();

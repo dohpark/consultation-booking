@@ -6,9 +6,9 @@ const getApiEndpoint = (path: string) => `${API_URL}/api${path}`;
 export const SLOTS_ENDPOINTS = {
   LIST: getApiEndpoint('/admin/slots'),
   CREATE: getApiEndpoint('/admin/slots'),
-  GET: (id: string) => getApiEndpoint(`/slots/${id}`),
+  GET: (id: string) => getApiEndpoint(`/admin/slots/${id}`),
   UPDATE: (id: string) => getApiEndpoint(`/slots/${id}`),
-  DELETE: (id: string) => getApiEndpoint(`/slots/${id}`),
+  DELETE: (id: string) => getApiEndpoint(`/admin/slots/${id}`),
 } as const;
 
 export async function fetchSlots(params: { from: string; to: string }): Promise<Slot[]> {
@@ -83,7 +83,14 @@ export async function deleteSlot(id: string): Promise<void> {
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Failed to delete slot' }));
-    throw new Error(error.message || 'Failed to delete slot');
+    const error = await response.json().catch(() => ({ message: '슬롯 삭제에 실패했습니다.' }));
+    const errorMessage = error.message || '슬롯 삭제에 실패했습니다.';
+
+    // 400 Bad Request: 예약이 있는 슬롯 삭제 시도
+    if (response.status === 400) {
+      throw new Error('예약이 있는 슬롯은 삭제할 수 없습니다.');
+    }
+
+    throw new Error(errorMessage);
   }
 }

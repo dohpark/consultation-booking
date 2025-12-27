@@ -150,9 +150,6 @@ export function SlotEditView({
 
   // 확인 핸들러
   const handleConfirm = () => {
-    const addedSlots: Array<{ startAt: Date; endAt: Date }> = [];
-    const deletedSlotIds = Array.from(pendingDeletedSlotIds);
-
     // 날짜 범위가 있으면 모든 날짜에 슬롯 추가 (단, 예약이 있는 날짜는 제외)
     const allDates = selectedDateRange
       ? eachDayOfInterval({ start: startOfDay(selectedDateRange.start), end: endOfDay(selectedDateRange.end) })
@@ -161,17 +158,81 @@ export function SlotEditView({
     // 예약이 없는 날짜만 필터링
     const dates = allDates.filter(date => !dateHasReservations(date));
 
-    // 추가 예정인 슬롯들을 실제 시간으로 변환
-    pendingAddedSlots.forEach(timeKey => {
-      const [hours, minutes] = timeKey.split(':').map(Number);
+    // 초기 상태: 각 날짜별로 시간대(HH:mm) -> 슬롯 매핑
+    // 날짜 범위 모드일 때는 해당 범위의 모든 슬롯을 고려
+    const initialSlotsByDateAndTime = new Map<string, Slot>();
 
-      // 모든 날짜에 해당 시간대 슬롯 추가
+    if (selectedDateRange) {
+      // 날짜 범위 모드: 해당 범위의 모든 슬롯을 초기 상태로 고려
+      const startDay = startOfDay(selectedDateRange.start);
+      const endDay = endOfDay(selectedDateRange.end);
+      slots.forEach(slot => {
+        const slotDate = parseISO(slot.startAt);
+        if (slotDate >= startDay && slotDate <= endDay) {
+          const dateKey = format(slotDate, 'yyyy-MM-dd');
+          const timeKey = format(slotDate, 'HH:mm');
+          const key = `${dateKey}-${timeKey}`;
+          initialSlotsByDateAndTime.set(key, slot);
+        }
+      });
+    } else {
+      // 단일 날짜 모드: daySlots 사용
+      daySlots.forEach(slot => {
+        const slotDate = parseISO(slot.startAt);
+        const dateKey = format(slotDate, 'yyyy-MM-dd');
+        const timeKey = format(slotDate, 'HH:mm');
+        const key = `${dateKey}-${timeKey}`;
+        initialSlotsByDateAndTime.set(key, slot);
+      });
+    }
+
+    // 최종 상태: 삭제되지 않은 슬롯 + 추가된 시간대
+    const finalSlotsByDateAndTime = new Set<string>();
+
+    // 초기 슬롯 중 삭제되지 않은 것들 (시간대 기준)
+    initialSlotsByDateAndTime.forEach((slot, key) => {
+      if (!pendingDeletedSlotIds.has(slot.id)) {
+        finalSlotsByDateAndTime.add(key);
+      }
+    });
+
+    // 추가된 시간대들
+    pendingAddedSlots.forEach(timeKey => {
       dates.forEach((date: Date) => {
-        const startAt = new Date(date);
+        const dateKey = format(date, 'yyyy-MM-dd');
+        const key = `${dateKey}-${timeKey}`;
+        finalSlotsByDateAndTime.add(key);
+      });
+    });
+
+    // 실제 변경사항 계산: 초기 상태와 최종 상태 비교 (시간대 기준)
+    const addedSlots: Array<{ startAt: Date; endAt: Date }> = [];
+    const deletedSlotIds: string[] = [];
+
+    // 추가할 슬롯: 초기에는 없었는데 최종에 있는 것 (시간대 기준)
+    finalSlotsByDateAndTime.forEach(key => {
+      if (!initialSlotsByDateAndTime.has(key)) {
+        // 새로 추가할 슬롯
+        // key 형식: "2025-12-08-00:00" (날짜-시간)
+        const lastDashIndex = key.lastIndexOf('-');
+        const dateKey = key.substring(0, lastDashIndex); // "2025-12-08"
+        const timeKey = key.substring(lastDashIndex + 1); // "00:00"
+        const [hours, minutes] = timeKey.split(':').map(Number);
+        const startAt = new Date(dateKey);
         startAt.setHours(hours, minutes, 0, 0);
         const endAt = addMinutes(startAt, 30);
         addedSlots.push({ startAt, endAt });
-      });
+      }
+    });
+
+    // 삭제할 슬롯: 초기에는 있었는데 최종에 없는 것 (시간대 기준)
+    initialSlotsByDateAndTime.forEach((slot, key) => {
+      if (!finalSlotsByDateAndTime.has(key)) {
+        // 예약이 없는 슬롯만 삭제 대상에 추가
+        if (!hasReservations(slot)) {
+          deletedSlotIds.push(slot.id);
+        }
+      }
     });
 
     onConfirm?.(addedSlots, deletedSlotIds);
