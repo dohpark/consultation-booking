@@ -4,7 +4,9 @@ import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useClientHistory } from '../hooks/useClientHistory';
 import { useInView } from 'react-intersection-observer';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { ConsultationNoteModal } from './ConsultationNoteModal';
+import type { Reservation } from '../types';
 
 interface ClientHistoryModalProps {
   isOpen: boolean;
@@ -18,6 +20,9 @@ export function ClientHistoryModal({ isOpen, onClose, clientEmail, clientName }:
     email: clientEmail,
     enabled: isOpen,
   });
+
+  const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
+  const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
 
   const { ref, inView } = useInView({
     threshold: 0,
@@ -106,7 +111,23 @@ export function ClientHistoryModal({ isOpen, onClose, clientEmail, clientName }:
                 {allItems.map(item => (
                   <div
                     key={item.id}
-                    className="bg-bg-secondary rounded-lg p-4 border border-border hover:border-primary transition-colors"
+                    className={`bg-bg-secondary rounded-lg p-4 border border-border transition-colors ${
+                      item.hasNote ? 'hover:border-primary cursor-pointer' : ''
+                    }`}
+                    onClick={() => {
+                      if (item.hasNote) {
+                        setSelectedReservation({
+                          id: item.id,
+                          slotId: item.slotId,
+                          email: item.email,
+                          name: item.name,
+                          status: item.status,
+                          createdAt: item.createdAt,
+                          updatedAt: item.createdAt,
+                        });
+                        setIsNoteModalOpen(true);
+                      }
+                    }}
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
@@ -116,7 +137,9 @@ export function ClientHistoryModal({ isOpen, onClose, clientEmail, clientName }:
                           </span>
                           {getStatusBadge(item.status)}
                           {item.hasNote && (
-                            <span className="px-2 py-1 text-xs font-medium bg-info/20 text-info rounded">노트 있음</span>
+                            <span className="px-2 py-1 text-xs font-medium bg-info/20 text-info rounded">
+                              노트 있음
+                            </span>
                           )}
                         </div>
                         <div className="text-sm text-text-secondary space-y-1">
@@ -151,7 +174,19 @@ export function ClientHistoryModal({ isOpen, onClose, clientEmail, clientName }:
           </div>
         </Dialog.Panel>
       </div>
+
+      {/* Consultation Note Modal */}
+      {selectedReservation && (
+        <ConsultationNoteModal
+          isOpen={isNoteModalOpen}
+          onClose={() => {
+            setIsNoteModalOpen(false);
+            setSelectedReservation(null);
+          }}
+          reservation={selectedReservation}
+          readOnly={true}
+        />
+      )}
     </Dialog>
   );
 }
-

@@ -10,11 +10,12 @@ interface ConsultationNoteModalProps {
   isOpen: boolean;
   onClose: () => void;
   reservation: Reservation;
+  readOnly?: boolean;
 }
 
 const STORAGE_KEY_PREFIX = 'consultation_note_draft_';
 
-export function ConsultationNoteModal({ isOpen, onClose, reservation }: ConsultationNoteModalProps) {
+export function ConsultationNoteModal({ isOpen, onClose, reservation, readOnly = false }: ConsultationNoteModalProps) {
   const storageKey = `${STORAGE_KEY_PREFIX}${reservation.id}`;
   const { data: note, isLoading, isError, error } = useConsultationNote(reservation.id, isOpen);
   const upsertMutation = useUpsertConsultationNote();
@@ -52,9 +53,9 @@ export function ConsultationNoteModal({ isOpen, onClose, reservation }: Consulta
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reservation.id, note, isOpen, isLoading]);
 
-  // localStorage에 임시 저장 (debounce)
+  // localStorage에 임시 저장 (debounce) - readOnly 모드에서는 저장하지 않음
   useEffect(() => {
-    if (!isOpen || !reservation.id) return;
+    if (!isOpen || !reservation.id || readOnly) return;
 
     const timer = setTimeout(() => {
       if (content.trim()) {
@@ -65,9 +66,10 @@ export function ConsultationNoteModal({ isOpen, onClose, reservation }: Consulta
     }, 500); // 500ms debounce
 
     return () => clearTimeout(timer);
-  }, [content, isOpen, reservation.id, storageKey]);
+  }, [content, isOpen, reservation.id, storageKey, readOnly]);
 
   const handleContentChange = (value: string) => {
+    if (readOnly) return;
     setContent(value);
     setHasUnsavedChanges(true);
   };
@@ -96,8 +98,8 @@ export function ConsultationNoteModal({ isOpen, onClose, reservation }: Consulta
   };
 
   const handleClose = () => {
-    if (hasUnsavedChanges) {
-      // 변경사항이 있으면 확인 후 닫기
+    if (!readOnly && hasUnsavedChanges) {
+      // 변경사항이 있으면 확인 후 닫기 (readOnly 모드에서는 확인하지 않음)
       const confirmed = window.confirm('저장하지 않은 변경사항이 있습니다. 정말 닫으시겠습니까?');
       if (!confirmed) {
         return;
@@ -120,7 +122,9 @@ export function ConsultationNoteModal({ isOpen, onClose, reservation }: Consulta
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-border">
             <div>
-              <Dialog.Title className="text-xl font-bold text-text-primary">상담 노트 작성</Dialog.Title>
+              <Dialog.Title className="text-xl font-bold text-text-primary">
+                {readOnly ? '상담 노트 보기' : '상담 노트 작성'}
+              </Dialog.Title>
               <p className="text-sm text-text-secondary mt-1">
                 {reservation.name} ({reservation.email})
               </p>
@@ -171,7 +175,8 @@ export function ConsultationNoteModal({ isOpen, onClose, reservation }: Consulta
                     className="w-full px-4 py-3 border border-border rounded-lg bg-bg-primary text-text-primary placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
                     minRows={10}
                     maxRows={20}
-                    disabled={isLoadingState}
+                    disabled={isLoadingState || readOnly}
+                    readOnly={readOnly}
                   />
                   <p className="text-xs text-text-tertiary mt-2">
                     {content.length}자 / 최대 10,000자
@@ -184,30 +189,38 @@ export function ConsultationNoteModal({ isOpen, onClose, reservation }: Consulta
 
           {/* Footer */}
           <div className="flex items-center justify-end gap-3 p-6 border-t border-border">
-            <button
-              onClick={handleClose}
-              className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors"
-              disabled={isLoadingState}
-            >
-              취소
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={isLoadingState || !content.trim()}
-              className="btn-primary flex items-center gap-2 px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoadingState ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  <span>저장 중...</span>
-                </>
-              ) : (
-                <>
-                  <Save size={16} />
-                  <span>저장</span>
-                </>
-              )}
-            </button>
+            {readOnly ? (
+              <button onClick={handleClose} className="btn-primary px-4 py-2">
+                닫기
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={handleClose}
+                  className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors"
+                  disabled={isLoadingState}
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={isLoadingState || !content.trim()}
+                  className="btn-primary flex items-center gap-2 px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isLoadingState ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>저장 중...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save size={16} />
+                      <span>저장</span>
+                    </>
+                  )}
+                </button>
+              </>
+            )}
           </div>
         </Dialog.Panel>
       </div>
