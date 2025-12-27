@@ -6,13 +6,28 @@ import type FullCalendar from '@fullcalendar/react';
 import { useSlotsByMonth } from '../domains/slots/hooks/useSlotsByMonth';
 import { CalendarHeader } from '../domains/slots/components/CalendarHeader';
 import { CalendarMonthView } from '../domains/slots/components/CalendarMonthView';
+import { useCreateReservation } from '../domains/reservations/hooks/useCreateReservation';
+import { ReservationConfirmModal } from '../domains/reservations/components/ReservationConfirmModal';
+import { ReservationSuccessModal } from '../domains/reservations/components/ReservationSuccessModal';
+import { useValidateToken } from '../domains/invitations/hooks/useValidateToken';
+import type { Slot } from '../domains/slots/types';
+import type { Reservation } from '../domains/reservations/types';
 
 export default function Booking() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+  const [createdReservation, setCreatedReservation] = useState<Reservation | null>(null);
   const calendarRef = useRef<FullCalendar | null>(null);
+
+  const createReservationMutation = useCreateReservation();
+
+  // 토큰에서 이메일 정보 가져오기
+  const { data: tokenInfo } = useValidateToken(token);
 
   // 오늘 날짜 및 유효 범위 메모이제이션 (무한 루프 방지 핵심)
   const validRange = useMemo(
@@ -97,6 +112,57 @@ export default function Booking() {
     return format(date, 'yyyy년 MM월 dd일 (EEE)', { locale: ko });
   }, []);
 
+  // 슬롯 클릭 핸들러
+  const handleSlotClick = useCallback((slot: Slot) => {
+    if (slot.availableCount === 0) {
+      return;
+    }
+    setSelectedSlot(slot);
+    setIsConfirmModalOpen(true);
+  }, []);
+
+  // 예약 확인 모달 제출 핸들러
+  const handleReservationSubmit = useCallback(
+    (name: string, email?: string, note?: string) => {
+      if (!selectedSlot || !token) {
+        return;
+      }
+
+      createReservationMutation.mutate(
+        {
+          token,
+          slotId: selectedSlot.id,
+          name,
+          email,
+          note,
+        },
+        {
+          onSuccess: reservation => {
+            setCreatedReservation(reservation);
+            setIsConfirmModalOpen(false);
+            setIsSuccessModalOpen(true);
+            // 슬롯 목록 갱신은 mutation의 onSuccess에서 처리됨
+          },
+          onError: error => {
+            // 에러는 모달에서 표시됨 (에러 메시지는 모달에서 읽음)
+            console.error('예약 생성 실패:', error);
+          },
+        },
+      );
+    },
+    [selectedSlot, token, createReservationMutation],
+  );
+
+  // 에러 메시지 추출
+  const reservationError = createReservationMutation.error?.message || null;
+
+  // 성공 모달 닫기 핸들러
+  const handleSuccessModalClose = useCallback(() => {
+    setIsSuccessModalOpen(false);
+    setCreatedReservation(null);
+    setSelectedSlot(null);
+  }, []);
+
   return (
     <div className="min-h-screen bg-bg-secondary px-4 py-8">
       <div className="max-w-6xl mx-auto space-y-6">
@@ -116,7 +182,7 @@ export default function Booking() {
             validRange={validRange}
           />
         </div>
-        선택된 날짜의 슬롯 리스트
+        {/* 선택된 날짜의 슬롯 리스트 */}
         {selectedDate && (
           <div className="card">
             <div className="flex items-center justify-between mb-4">
@@ -153,6 +219,7 @@ export default function Booking() {
                     <button
                       key={slot.id}
                       disabled={isDisabled}
+                      onClick={() => handleSlotClick(slot)}
                       className={`
                         w-full p-4 rounded-lg border text-left transition-all
                         ${
@@ -198,6 +265,32 @@ export default function Booking() {
               캘린더에서 날짜를 선택하면 예약 가능한 시간을 확인할 수 있습니다.
             </p>
           </div>
+        )}
+
+        {/* 예약 확인 모달 */}
+        {selectedSlot && (
+          <ReservationConfirmModal
+            isOpen={isConfirmModalOpen}
+            onClose={() => {
+              setIsConfirmModalOpen(false);
+              setSelectedSlot(null);
+              createReservationMutation.reset();
+            }}
+            slot={selectedSlot}
+            onSubmit={handleReservationSubmit}
+            isLoading={createReservationMutation.isPending}
+            error={reservationError}
+            defaultEmail={tokenInfo?.email}
+          />
+        )}
+
+        {/* 예약 성공 모달 */}
+        {createdReservation && (
+          <ReservationSuccessModal
+            isOpen={isSuccessModalOpen}
+            onClose={handleSuccessModalClose}
+            reservation={createdReservation}
+          />
         )}
       </div>
     </div>
