@@ -15,10 +15,12 @@ async function bootstrap() {
   // CORS 설정 (쿠키 전송 허용)
   const allowedOrigins = [
     process.env.FRONTEND_URL || 'http://localhost:5173',
+    process.env.APPLICANT_FRONTEND_URL || 'http://localhost:5174',
     'http://localhost:3000',
     'http://localhost:5173',
+    'http://localhost:5174', // applicant 앱 포트
   ];
-  
+
   app.enableCors({
     origin: (origin, callback) => {
       // origin이 없으면 (같은 origin 요청) 허용

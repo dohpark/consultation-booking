@@ -17,7 +17,9 @@ export interface ApiResponse<T> {
  * 토큰 검증
  */
 export async function validateToken(token: string): Promise<ValidateTokenResponse> {
-  const response = await fetch(`${getApiEndpoint('/public/invitations/validate')}?token=${encodeURIComponent(token)}`, {
+  const url = `${getApiEndpoint('/public/invitations/validate')}?token=${encodeURIComponent(token)}`;
+
+  const response = await fetch(url, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -30,10 +32,10 @@ export async function validateToken(token: string): Promise<ValidateTokenRespons
   }
 
   const data: ApiResponse<ValidateTokenResponse> = await response.json();
+
   if (data.success && data.data) {
     return data.data;
   }
 
   throw new Error('토큰 검증에 실패했습니다.');
 }
-

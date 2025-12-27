@@ -7,7 +7,7 @@ export default function Landing() {
   const navigate = useNavigate();
   const token = searchParams.get('token');
 
-  const { data, isError, isSuccess } = useValidateToken(token);
+  const { data, isError, isSuccess, error, isLoading } = useValidateToken(token);
 
   useEffect(() => {
     // token이 없으면 Error 화면으로 이동
@@ -27,7 +27,7 @@ export default function Landing() {
       navigate('/error?reason=invalid-token', { replace: true });
       return;
     }
-  }, [token, isSuccess, isError, data, navigate]);
+  }, [token, isSuccess, isError, data, error, isLoading, navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-bg-secondary">
