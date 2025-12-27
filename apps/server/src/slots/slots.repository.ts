@@ -112,6 +112,19 @@ export class SlotsRepository {
   }
 
   /**
+   * 슬롯에 예약이 있는지 확인 (BOOKED 상태만)
+   */
+  async hasBookedReservations(id: string): Promise<boolean> {
+    const count = await this.prisma.reservation.count({
+      where: {
+        slotId: id,
+        status: 'BOOKED',
+      },
+    });
+    return count > 0;
+  }
+
+  /**
    * 슬롯 삭제
    */
   async delete(id: string): Promise<Slot> {

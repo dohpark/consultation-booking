@@ -161,6 +161,12 @@ export class SlotsService {
       throw new BadRequestException('본인의 슬롯만 삭제할 수 있습니다.');
     }
 
+    // 예약이 있는 슬롯은 삭제 불가
+    const hasReservations = await this.slotsRepository.hasBookedReservations(id);
+    if (hasReservations) {
+      throw new BadRequestException('예약이 있는 슬롯은 삭제할 수 없습니다.');
+    }
+
     await this.slotsRepository.delete(id);
   }
 
