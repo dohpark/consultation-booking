@@ -186,12 +186,30 @@ export function SlotEditView({
       });
     }
 
+    // 날짜 범위 모드에서 추가된 시간대가 있으면, 해당 날짜 범위의 다른 시간대 슬롯들을 자동 삭제
+    const autoDeletedSlotIds = new Set<string>(pendingDeletedSlotIds);
+    if (selectedDateRange && pendingAddedSlots.size > 0) {
+      // 추가된 시간대 목록
+      const addedTimeKeys = new Set(Array.from(pendingAddedSlots));
+
+      // 해당 날짜 범위의 모든 날짜에서, 추가된 시간대가 아닌 기존 슬롯들을 삭제 대상에 추가
+      initialSlotsByDateAndTime.forEach((slot, key) => {
+        const timeKey = key.substring(key.lastIndexOf('-') + 1);
+        if (!addedTimeKeys.has(timeKey)) {
+          // 추가된 시간대가 아니면 삭제 대상에 추가 (예약이 없는 슬롯만)
+          if (!hasReservations(slot)) {
+            autoDeletedSlotIds.add(slot.id);
+          }
+        }
+      });
+    }
+
     // 최종 상태: 삭제되지 않은 슬롯 + 추가된 시간대
     const finalSlotsByDateAndTime = new Set<string>();
 
     // 초기 슬롯 중 삭제되지 않은 것들 (시간대 기준)
     initialSlotsByDateAndTime.forEach((slot, key) => {
-      if (!pendingDeletedSlotIds.has(slot.id)) {
+      if (!autoDeletedSlotIds.has(slot.id)) {
         finalSlotsByDateAndTime.add(key);
       }
     });
@@ -231,6 +249,16 @@ export function SlotEditView({
         // 예약이 없는 슬롯만 삭제 대상에 추가
         if (!hasReservations(slot)) {
           deletedSlotIds.push(slot.id);
+        }
+      }
+    });
+
+    // 날짜 범위 모드에서 자동 삭제된 슬롯들도 포함 (중복 제거)
+    autoDeletedSlotIds.forEach(slotId => {
+      if (!deletedSlotIds.includes(slotId)) {
+        const slot = Array.from(initialSlotsByDateAndTime.values()).find(s => s.id === slotId);
+        if (slot && !hasReservations(slot)) {
+          deletedSlotIds.push(slotId);
         }
       }
     });

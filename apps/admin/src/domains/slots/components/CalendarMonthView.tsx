@@ -78,8 +78,8 @@ export function CalendarMonthView({
             const container = document.createElement('div');
             dayEventsEl.appendChild(container);
             const root = createRoot(container);
-            const daySlots = slotsByDate[dateKey] || [];
-            root.render(<TimeRangeSummary slots={daySlots} />);
+      const daySlots = slotsByDate[dateKey] || [];
+      root.render(<TimeRangeSummary slots={daySlots} />);
             dayEventRootsRef.current.set(dateKey, root);
           }
         }
@@ -200,25 +200,25 @@ export function CalendarMonthView({
 
   return (
     <div className="flex-1 relative">
-      <FullCalendar
-        ref={calendarRef}
-        plugins={[dayGridPlugin, interactionPlugin]}
-        initialView="dayGridMonth"
-        headerToolbar={false}
-        locale={koLocale}
-        selectable={isEditSlotsMode} // 예약 시간 수정 모드에서만 드래그 가능
-        selectMirror={isEditSlotsMode} // 드래그 시 하이라이트 표시
-        weekends={true}
-        select={handleDateSelect}
-        dateClick={handleDateClick}
-        dayCellContent={renderDayCellContent}
-        dayCellDidMount={handleDayCellMount}
-        dayCellWillUnmount={handleDayCellUnmount}
-        height="auto"
-        dayMaxEvents={false}
-        moreLinkClick="popover"
-        datesSet={handleDatesSet}
-      />
+        <FullCalendar
+          ref={calendarRef}
+          plugins={[dayGridPlugin, interactionPlugin]}
+          initialView="dayGridMonth"
+          headerToolbar={false}
+          locale={koLocale}
+          selectable={isEditSlotsMode} // 예약 시간 수정 모드에서만 드래그 가능
+          selectMirror={isEditSlotsMode} // 드래그 시 하이라이트 표시
+          weekends={true}
+          select={handleDateSelect}
+          dateClick={handleDateClick}
+          dayCellContent={renderDayCellContent}
+          dayCellDidMount={handleDayCellMount}
+          dayCellWillUnmount={handleDayCellUnmount}
+          height="auto"
+          dayMaxEvents={false}
+          moreLinkClick="popover"
+          datesSet={handleDatesSet}
+        />
       {isLoading ? (
         <div className="absolute inset-0 flex items-center justify-center bg-bg-primary/50 z-10">
           <div className="flex flex-col items-center gap-2">

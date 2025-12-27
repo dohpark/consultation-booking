@@ -146,28 +146,6 @@ const Dashboard = () => {
     addedSlots: Array<{ startAt: Date; endAt: Date }>,
     deletedSlotIds: string[],
   ) => {
-    // 날짜 범위가 있는 경우, 예약 없는 슬롯만 삭제 대상에 추가 (덮어쓰기 방식)
-    if (selectedDateRange) {
-      const { start, end } = selectedDateRange;
-      const startDay = new Date(start);
-      startDay.setHours(0, 0, 0, 0);
-      const endDay = new Date(end);
-      endDay.setHours(23, 59, 59, 999);
-
-      // 날짜 범위 내의 모든 슬롯 찾기
-      const rangeSlots = slots.filter(slot => {
-        const slotDate = new Date(slot.startAt);
-        return slotDate >= startDay && slotDate <= endDay;
-      });
-
-      // 예약이 없는 슬롯만 삭제 대상에 추가 (이미 deletedSlotIds에 포함된 것은 제외)
-      rangeSlots.forEach(slot => {
-        if (!hasReservations(slot) && !deletedSlotIds.includes(slot.id)) {
-          deletedSlotIds.push(slot.id);
-        }
-      });
-    }
-
     // 변경사항이 없으면 모달만 닫기
     if (addedSlots.length === 0 && deletedSlotIds.length === 0) {
       handleCloseModal();
