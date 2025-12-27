@@ -14,8 +14,9 @@ import { ReservationBlockedModal } from '../domains/slots/components/Reservation
 import { ReservationView } from '../domains/slots/components/ReservationView';
 import { SlotEditView } from '../domains/slots/components/SlotEditView';
 import { ClientHistoryModal } from '../domains/slots/components/ClientHistoryModal';
+import { ConsultationNoteModal } from '../domains/slots/components/ConsultationNoteModal';
 import { eachDayOfInterval, startOfDay, endOfDay, format, parseISO } from 'date-fns';
-import type { Slot } from '../domains/slots/types';
+import type { Slot, Reservation } from '../domains/slots/types';
 
 const Dashboard = () => {
   const { showToast } = useToast();
@@ -23,7 +24,7 @@ const Dashboard = () => {
   const { slots, isLoading, refreshSlots } = useSlotsQuery(currentDate);
   const createSlotMutation = useCreateSlot();
   const deleteSlotMutation = useDeleteSlot();
-  const { reservations, cancelReservation, editReservation } = useReservations({ slots });
+  const { reservations, cancelReservation } = useReservations({ slots });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isDateRangeModalOpen, setIsDateRangeModalOpen] = useState(false);
@@ -34,6 +35,8 @@ const Dashboard = () => {
   const [isClientHistoryModalOpen, setIsClientHistoryModalOpen] = useState(false);
   const [selectedClientEmail, setSelectedClientEmail] = useState<string>('');
   const [selectedClientName, setSelectedClientName] = useState<string>('');
+  const [isConsultationNoteModalOpen, setIsConsultationNoteModalOpen] = useState(false);
+  const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const calendarRef = useRef<FullCalendar>(null);
   const { handlePrev, handleNext, handleToday } = useCalendarNavigation(calendarRef);
   const { mode, toggleViewReservations, toggleEditSlots } = useCalendarMode();
@@ -135,6 +138,12 @@ const Dashboard = () => {
     setSelectedClientEmail(email);
     setSelectedClientName(name);
     setIsClientHistoryModalOpen(true);
+  };
+
+  // 상담 노트 작성 핸들러
+  const handleViewConsultationNote = (reservation: Reservation) => {
+    setSelectedReservation(reservation);
+    setIsConsultationNoteModalOpen(true);
   };
 
   // 슬롯에 예약이 있는지 확인
@@ -285,8 +294,8 @@ const Dashboard = () => {
             slots={slots}
             reservations={reservations}
             onCancelReservation={cancelReservation}
-            onEditReservation={editReservation}
             onViewClientHistory={handleViewClientHistory}
+            onViewConsultationNote={handleViewConsultationNote}
           />
         ) : mode === 'editSlots' && selectedDate ? (
           <SlotEditView
@@ -322,6 +331,18 @@ const Dashboard = () => {
         clientEmail={selectedClientEmail}
         clientName={selectedClientName}
       />
+
+      {/* Consultation Note Modal */}
+      {selectedReservation && (
+        <ConsultationNoteModal
+          isOpen={isConsultationNoteModalOpen}
+          onClose={() => {
+            setIsConsultationNoteModalOpen(false);
+            setSelectedReservation(null);
+          }}
+          reservation={selectedReservation}
+        />
+      )}
 
       {/* Reservation Blocked Modal */}
       <ReservationBlockedModal
