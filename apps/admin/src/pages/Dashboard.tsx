@@ -5,6 +5,8 @@ import { useSlots } from '../domains/slots/hooks/useSlots';
 import { useReservations } from '../domains/slots/hooks/useReservations';
 import { useCalendarNavigation } from '../domains/slots/hooks/useCalendarNavigation';
 import { useCalendarMode } from '../domains/slots/hooks/useCalendarMode';
+import { useToast } from '../shared/contexts/ToastContext';
+import { createSlot } from '../domains/slots/services/slotsService';
 import { CalendarHeader } from '../domains/slots/components/CalendarHeader';
 import { CalendarMonthView } from '../domains/slots/components/CalendarMonthView';
 import { DateDetailModal } from '../domains/slots/components/DateDetailModal';
@@ -16,6 +18,7 @@ import { eachDayOfInterval, startOfDay, endOfDay, format, parseISO } from 'date-
 import type { Slot } from '../domains/slots/types';
 
 const Dashboard = () => {
+  const { showToast } = useToast();
   const { slots, isLoading, addSlot, removeSlot } = useSlots();
   const { reservations, cancelReservation, editReservation } = useReservations();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -31,23 +34,22 @@ const Dashboard = () => {
   const { mode, toggleViewReservations, toggleEditSlots } = useCalendarMode();
 
   // 날짜 선택 핸들러 (슬롯 생성)
-  const handleDateSelect = (start: Date) => {
+  const handleDateSelect = async (start: Date) => {
     const roundedEnd = new Date(start);
     roundedEnd.setMinutes(roundedEnd.getMinutes() + 30);
 
-    // TODO: API 연동 후 활성화
-    // 임시: 더미 슬롯 추가 (로컬 상태만 업데이트)
-    const newSlot: Slot = {
-      id: `temp-${Date.now()}`,
-      counselorId: 'temp',
-      startAt: start.toISOString(),
-      endAt: roundedEnd.toISOString(),
-      capacity: 3,
-      bookedCount: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    addSlot(newSlot);
+    try {
+      const newSlot = await createSlot({
+        startAt: start.toISOString(),
+        endAt: roundedEnd.toISOString(),
+        capacity: 3,
+      });
+      addSlot(newSlot);
+      showToast('슬롯이 생성되었습니다.', 'success');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '슬롯 생성에 실패했습니다.';
+      showToast(errorMessage, 'error');
+    }
   };
 
   // 날짜 클릭 핸들러
@@ -138,7 +140,10 @@ const Dashboard = () => {
   };
 
   // 슬롯 변경사항 확인 핸들러 (예약 시간 수정 모드용)
-  const handleConfirmSlotChanges = (addedSlots: Array<{ startAt: Date; endAt: Date }>, deletedSlotIds: string[]) => {
+  const handleConfirmSlotChanges = async (
+    addedSlots: Array<{ startAt: Date; endAt: Date }>,
+    deletedSlotIds: string[],
+  ) => {
     // 날짜 범위가 있는 경우, 예약 없는 슬롯만 삭제 대상에 추가 (덮어쓰기 방식)
     if (selectedDateRange) {
       const { start, end } = selectedDateRange;
@@ -161,22 +166,27 @@ const Dashboard = () => {
       });
     }
 
-    // 추가할 슬롯들 생성
-    addedSlots.forEach(({ startAt, endAt }) => {
-      const newSlot: Slot = {
-        id: `temp-${Date.now()}-${Math.random()}`,
-        counselorId: 'temp',
-        startAt: startAt.toISOString(),
-        endAt: endAt.toISOString(),
-        capacity: 3,
-        bookedCount: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      addSlot(newSlot);
-    });
+    // 추가할 슬롯들 생성 (API 호출)
+    try {
+      for (const { startAt, endAt } of addedSlots) {
+        const newSlot = await createSlot({
+          startAt: startAt.toISOString(),
+          endAt: endAt.toISOString(),
+          capacity: 3,
+        });
+        addSlot(newSlot);
+      }
+      if (addedSlots.length > 0) {
+        showToast(`${addedSlots.length}개의 슬롯이 생성되었습니다.`, 'success');
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '슬롯 생성에 실패했습니다.';
+      showToast(errorMessage, 'error');
+      return; // 에러 발생 시 모달 닫지 않음
+    }
 
     // 삭제할 슬롯들 제거 (예약이 있는 슬롯은 보호)
+    // 삭제 기능은 아직 구현하지 않음
     deletedSlotIds.forEach(slotId => {
       const slot = slots.find(s => s.id === slotId);
       if (slot && !hasReservations(slot)) {

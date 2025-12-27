@@ -3,6 +3,8 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
+import { PrismaService } from '../../prisma/prisma.service';
+import { AuthRepository } from '../auth.repository';
 
 export interface JwtPayload {
   sub: string;
@@ -14,7 +16,11 @@ export interface JwtPayload {
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    private prisma: PrismaService,
+    private authRepository: AuthRepository,
+  ) {
     const secret = configService.get<string>('JWT_SECRET') || 'your-secret-key';
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
@@ -32,14 +38,36 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  validate(payload: JwtPayload) {
-    if (!payload.email) {
-      throw new UnauthorizedException('Invalid token payload');
+  async validate(payload: JwtPayload) {
+    try {
+      if (!payload.email || !payload.sub) {
+        throw new UnauthorizedException('Invalid token payload');
+      }
+
+      // Google sub로 Counselor 조회
+      let counselor = await this.prisma.counselor.findUnique({
+        where: { googleSub: payload.sub },
+      });
+
+      // Counselor가 없으면 자동 생성
+      if (!counselor) {
+        counselor = await this.authRepository.upsertByGoogleSub({
+          email: payload.email,
+          name: payload.name,
+          googleSub: payload.sub,
+        });
+      }
+
+      return {
+        userId: counselor.id, // 실제 Counselor.id (UUID) 사용
+        email: payload.email,
+        name: payload.name,
+      };
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      throw new UnauthorizedException('Authentication failed');
     }
-    return {
-      userId: payload.sub,
-      email: payload.email,
-      name: payload.name,
-    };
   }
 }

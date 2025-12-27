@@ -5,7 +5,7 @@ const getApiEndpoint = (path: string) => `${API_URL}/api${path}`;
 
 export const SLOTS_ENDPOINTS = {
   LIST: getApiEndpoint('/slots'),
-  CREATE: getApiEndpoint('/slots'),
+  CREATE: getApiEndpoint('/admin/slots'),
   GET: (id: string) => getApiEndpoint(`/slots/${id}`),
   UPDATE: (id: string) => getApiEndpoint(`/slots/${id}`),
   DELETE: (id: string) => getApiEndpoint(`/slots/${id}`),
@@ -41,8 +41,15 @@ export async function createSlot(dto: CreateSlotDto): Promise<Slot> {
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Failed to create slot' }));
-    throw new Error(error.message || 'Failed to create slot');
+    const error = await response.json().catch(() => ({ message: '슬롯 생성에 실패했습니다.' }));
+    const errorMessage = error.message || '슬롯 생성에 실패했습니다.';
+    
+    // 409 Conflict: 중복 슬롯
+    if (response.status === 409) {
+      throw new Error('이미 존재하는 슬롯입니다.');
+    }
+    
+    throw new Error(errorMessage);
   }
 
   const data = await response.json();
