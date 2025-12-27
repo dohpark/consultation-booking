@@ -10,6 +10,6 @@ import { InvitationsModule } from '../invitations/invitations.module';
   imports: [PrismaModule, InvitationsModule],
   controllers: [ReservationsController, PublicReservationsController],
   providers: [ReservationsService, ReservationsRepository],
-  exports: [ReservationsService],
+  exports: [ReservationsService, ReservationsRepository],
 })
 export class ReservationsModule {}
