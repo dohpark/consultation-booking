@@ -1,0 +1,39 @@
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002';
+const getApiEndpoint = (path: string) => `${API_URL}/api${path}`;
+
+export interface ValidateTokenResponse {
+  email: string;
+  counselorId: string;
+  expiresAt: string;
+}
+
+export interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  message?: string;
+}
+
+/**
+ * 토큰 검증
+ */
+export async function validateToken(token: string): Promise<ValidateTokenResponse> {
+  const response = await fetch(`${getApiEndpoint('/public/invitations/validate')}?token=${encodeURIComponent(token)}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: '토큰 검증에 실패했습니다.' }));
+    throw new Error(error.message || '토큰 검증에 실패했습니다.');
+  }
+
+  const data: ApiResponse<ValidateTokenResponse> = await response.json();
+  if (data.success && data.data) {
+    return data.data;
+  }
+
+  throw new Error('토큰 검증에 실패했습니다.');
+}
+
