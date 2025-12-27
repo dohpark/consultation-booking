@@ -9,7 +9,10 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('google')
-  async googleLogin(@Body() dto: GoogleLoginDto, @Res({ passthrough: true }) res: Response): Promise<Omit<AuthResponseDto, 'accessToken'>> {
+  async googleLogin(
+    @Body() dto: GoogleLoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<Omit<AuthResponseDto, 'accessToken'>> {
     const result = await this.authService.googleLogin(dto);
 
     // JWT를 HTTP-only 쿠키로 설정
@@ -24,5 +27,16 @@ export class AuthController {
     return {
       user: result.user,
     };
+  }
+
+  @Post('logout')
+  logout(@Res({ passthrough: true }) res: Response) {
+    // HTTP-only 쿠키 삭제
+    res.clearCookie('access_token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+    });
+    return { success: true, message: '로그아웃되었습니다.' };
   }
 }

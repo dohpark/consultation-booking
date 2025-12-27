@@ -25,10 +25,12 @@ async function fetchProfile(): Promise<User | null> {
 }
 
 async function logout(): Promise<void> {
+  // HTTP-only 쿠키는 백엔드에서만 삭제 가능
   await fetch(AUTH_ENDPOINTS.LOGOUT, {
     method: 'POST',
     credentials: 'include',
   });
+  // 에러가 발생해도 쿠키 삭제는 시도했으므로 성공으로 처리
 }
 
 export function useAuthQuery() {
