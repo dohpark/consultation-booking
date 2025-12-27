@@ -41,6 +41,9 @@ importers:
       '@react-oauth/google':
         specifier: ^0.13.4
         version: 0.13.4(react-dom@19.2.3)(react@19.2.3)
+      '@tanstack/react-query':
+        specifier: ^5.90.12
+        version: 5.90.12(react@19.2.3)
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -3402,6 +3405,19 @@ packages:
       tailwindcss: 4.1.18
       vite: 7.3.0(@types/node@24.10.4)
     dev: true
+
+  /@tanstack/query-core@5.90.12:
+    resolution: {integrity: sha512-T1/8t5DhV/SisWjDnaiU2drl6ySvsHj1bHBCWNXd+/T+Hh1cf6JodyEYMd5sgwm+b/mETT4EV3H+zCVczCU5hg==}
+    dev: false
+
+  /@tanstack/react-query@5.90.12(react@19.2.3):
+    resolution: {integrity: sha512-graRZspg7EoEaw0a8faiUASCyJrqjKPdqJ9EwuDRUF9mEYJ1YPczI9H+/agJ0mOJkPCJDk0lsz5QTrLZ/jQ2rg==}
+    peerDependencies:
+      react: ^18 || ^19
+    dependencies:
+      '@tanstack/query-core': 5.90.12
+      react: 19.2.3
+    dev: false
 
   /@tanstack/react-virtual@3.13.13(react-dom@19.2.3)(react@19.2.3):
     resolution: {integrity: sha512-4o6oPMDvQv+9gMi8rE6gWmsOjtUZUYIJHv7EB+GblyYdi8U6OqLl8rhHWIUZSL1dUU2dPwTdTgybCKf9EjIrQg==}

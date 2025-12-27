@@ -1,59 +1,19 @@
-import { createContext, useState, useEffect } from 'react';
+import { createContext } from 'react';
 import type { ReactNode } from 'react';
-import type { User, AuthContextType } from '../types';
-import { AUTH_ENDPOINTS } from '../constants';
+import type { AuthContextType, User } from '../types';
+import { useAuthQuery } from '../hooks/useAuthQuery';
+import { useQueryClient } from '@tanstack/react-query';
+import { AUTH_QUERY_KEYS } from '../hooks/useAuthQuery';
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  const checkAuth = async () => {
-    try {
-      const response = await fetch(AUTH_ENDPOINTS.PROFILE, {
-        credentials: 'include',
-      });
-
-      const isResponseOk = response.ok;
-      if (isResponseOk) {
-        const data = await response.json();
-        const hasValidUserData = data.success && data.data;
-        if (hasValidUserData) {
-          setUser(data.data);
-        } else {
-          setUser(null);
-        }
-      } else {
-        setUser(null);
-      }
-    } catch (error) {
-      console.error('Auth check failed:', error);
-      setUser(null);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    checkAuth();
-  }, []);
+  const { user, isLoading, isAuthenticated, refetch, logout } = useAuthQuery();
+  const queryClient = useQueryClient();
 
   const login = (userData: User) => {
-    setUser(userData);
-  };
-
-  const logout = async () => {
-    try {
-      await fetch(AUTH_ENDPOINTS.LOGOUT, {
-        method: 'POST',
-        credentials: 'include',
-      });
-    } catch (error) {
-      console.error('Logout failed:', error);
-    } finally {
-      setUser(null);
-    }
+    // react-query의 setQueryData를 사용하여 사용자 데이터 업데이트
+    queryClient.setQueryData(AUTH_QUERY_KEYS.profile(), userData);
   };
 
   return (
@@ -61,14 +21,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         isLoading,
-        isAuthenticated: !!user,
+        isAuthenticated,
         login,
         logout,
-        checkAuth,
+        checkAuth: async () => {
+          await refetch();
+        },
       }}
     >
       {children}
     </AuthContext.Provider>
   );
 }
-

@@ -1,12 +1,12 @@
 import { useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import type FullCalendar from '@fullcalendar/react';
-import { useSlots } from '../domains/slots/hooks/useSlots';
+import { useSlotsQuery } from '../domains/slots/hooks/useSlotsQuery';
+import { useCreateSlot, useDeleteSlot } from '../domains/slots/hooks/useSlotMutations';
 import { useReservations } from '../domains/slots/hooks/useReservations';
 import { useCalendarNavigation } from '../domains/slots/hooks/useCalendarNavigation';
 import { useCalendarMode } from '../domains/slots/hooks/useCalendarMode';
 import { useToast } from '../shared/contexts/ToastContext';
-import { createSlot, deleteSlot } from '../domains/slots/services/slotsService';
 import { CalendarHeader } from '../domains/slots/components/CalendarHeader';
 import { CalendarMonthView } from '../domains/slots/components/CalendarMonthView';
 import { DateDetailModal } from '../domains/slots/components/DateDetailModal';
@@ -20,7 +20,9 @@ import type { Slot } from '../domains/slots/types';
 const Dashboard = () => {
   const { showToast } = useToast();
   const [currentDate, setCurrentDate] = useState(new Date());
-  const { slots, isLoading, addSlot, removeSlot, refreshSlots } = useSlots(currentDate);
+  const { slots, isLoading, refreshSlots } = useSlotsQuery(currentDate);
+  const createSlotMutation = useCreateSlot();
+  const deleteSlotMutation = useDeleteSlot();
   const { reservations, cancelReservation, editReservation } = useReservations();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -34,24 +36,27 @@ const Dashboard = () => {
   const { mode, toggleViewReservations, toggleEditSlots } = useCalendarMode();
 
   // 날짜 선택 핸들러 (슬롯 생성)
-  const handleDateSelect = async (start: Date) => {
+  const handleDateSelect = (start: Date) => {
     const roundedEnd = new Date(start);
     roundedEnd.setMinutes(roundedEnd.getMinutes() + 30);
 
-    try {
-      const newSlot = await createSlot({
+    createSlotMutation.mutate(
+      {
         startAt: start.toISOString(),
         endAt: roundedEnd.toISOString(),
         capacity: 3,
-      });
-      addSlot(newSlot);
-      showToast('슬롯이 생성되었습니다.', 'success');
-      // 슬롯 목록 갱신 (현재 월의 슬롯 다시 불러오기)
-      refreshSlots();
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : '슬롯 생성에 실패했습니다.';
-      showToast(errorMessage, 'error');
-    }
+      },
+      {
+        onSuccess: () => {
+          showToast('슬롯이 생성되었습니다.', 'success');
+          refreshSlots();
+        },
+        onError: error => {
+          const errorMessage = error instanceof Error ? error.message : '슬롯 생성에 실패했습니다.';
+          showToast(errorMessage, 'error');
+        },
+      },
+    );
   };
 
   // 날짜 클릭 핸들러
@@ -158,12 +163,11 @@ const Dashboard = () => {
 
     for (const slot of addedSlots) {
       try {
-        const newSlot = await createSlot({
+        await createSlotMutation.mutateAsync({
           startAt: slot.startAt.toISOString(),
           endAt: slot.endAt.toISOString(),
           capacity: 3,
         });
-        addSlot(newSlot);
         addedSuccess.push(slot);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : '슬롯 생성에 실패했습니다.';
@@ -191,8 +195,7 @@ const Dashboard = () => {
 
     for (const slotId of validDeletedSlotIds) {
       try {
-        await deleteSlot(slotId);
-        removeSlot(slotId);
+        await deleteSlotMutation.mutateAsync(slotId);
         deletedSuccess.push(slotId);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : '슬롯 삭제에 실패했습니다.';

@@ -1,40 +1,40 @@
 import { useState } from 'react';
 import { Mail, Copy, Check, Send } from 'lucide-react';
 import { useToast } from '../shared/contexts/ToastContext';
-import { createInvitation } from '../domains/invitations/services/invitationsService';
-import type { InvitationResponse } from '../domains/invitations/types';
+import { useCreateInvitation } from '../domains/invitations/hooks/useInvitations';
 
 const Invitations = () => {
   const { showToast } = useToast();
   const [email, setEmail] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [invitation, setInvitation] = useState<InvitationResponse | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const handleCreateInvitation = async () => {
+  const createInvitationMutation = useCreateInvitation();
+
+  const handleCreateInvitation = () => {
     if (!email.trim()) {
       showToast('이메일을 입력해주세요.', 'error');
       return;
     }
 
-    setIsLoading(true);
-    try {
-      const result = await createInvitation({ email: email.trim() });
-      setInvitation(result);
-      showToast('이메일이 전송되었습니다.', 'success');
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : '이메일 전송에 실패했습니다.';
-      showToast(errorMessage, 'error');
-    } finally {
-      setIsLoading(false);
-    }
+    createInvitationMutation.mutate(
+      { email: email.trim() },
+      {
+        onSuccess: () => {
+          showToast('이메일이 전송되었습니다.', 'success');
+        },
+        onError: error => {
+          const errorMessage = error instanceof Error ? error.message : '이메일 전송에 실패했습니다.';
+          showToast(errorMessage, 'error');
+        },
+      },
+    );
   };
 
   const handleCopyLink = async () => {
-    if (!invitation?.link) return;
+    if (!createInvitationMutation.data?.link) return;
 
     try {
-      await navigator.clipboard.writeText(invitation.link);
+      await navigator.clipboard.writeText(createInvitationMutation.data.link);
       setCopied(true);
       showToast('링크가 클립보드에 복사되었습니다.', 'success');
       setTimeout(() => setCopied(false), 2000);
@@ -70,16 +70,16 @@ const Invitations = () => {
               onChange={e => setEmail(e.target.value)}
               placeholder="예약자 이메일을 입력하세요"
               className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-              disabled={isLoading}
+              disabled={createInvitationMutation.isPending}
             />
           </div>
 
           <button
             onClick={handleCreateInvitation}
-            disabled={isLoading || !email.trim()}
+            disabled={createInvitationMutation.isPending || !email.trim()}
             className="btn-primary flex items-center justify-center gap-2 w-full"
           >
-            {isLoading ? (
+            {createInvitationMutation.isPending ? (
               <>
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                 <span>전송 중...</span>
@@ -95,7 +95,7 @@ const Invitations = () => {
       </div>
 
       {/* Sent Email Info Section */}
-      {invitation && (
+      {createInvitationMutation.data && (
         <div className="card border-primary/20 bg-primary-light/5">
           <div className="flex items-center gap-3 mb-4">
             <Check className="w-5 h-5 text-success" />
@@ -108,7 +108,7 @@ const Invitations = () => {
               <div className="flex items-center gap-2">
                 <input
                   type="text"
-                  value={invitation.link}
+                  value={createInvitationMutation.data.link}
                   readOnly
                   className="flex-1 px-4 py-2 border border-border rounded-lg bg-bg-secondary text-text-primary font-mono text-sm"
                 />
@@ -135,12 +135,12 @@ const Invitations = () => {
             <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
               <div>
                 <label className="block text-sm font-medium text-text-secondary mb-1">이메일</label>
-                <p className="text-text-primary">{invitation.email}</p>
+                <p className="text-text-primary">{createInvitationMutation.data.email}</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-text-secondary mb-1">만료일</label>
                 <p className="text-text-primary">
-                  {new Date(invitation.expiresAt).toLocaleDateString('ko-KR', {
+                  {new Date(createInvitationMutation.data.expiresAt).toLocaleDateString('ko-KR', {
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric',

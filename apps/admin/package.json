@@ -17,6 +17,7 @@
     "@fullcalendar/timegrid": "^6.1.20",
     "@headlessui/react": "^2.2.9",
     "@react-oauth/google": "^0.13.4",
+    "@tanstack/react-query": "^5.90.12",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.562.0",
