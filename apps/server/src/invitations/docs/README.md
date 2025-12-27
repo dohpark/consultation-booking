@@ -2,7 +2,7 @@
 
 ## 개요
 
-예약 링크 토큰 발급 및 검증 시스템입니다. Admin이 이메일로 초대 링크를 생성하고, 예약자가 토큰을 통해 예약 페이지에 접근할 수 있습니다.
+예약 링크 토큰 발급 및 이메일 전송 시스템입니다. Admin이 이메일 주소를 입력하면 초대 링크가 생성되고 자동으로 이메일로 전송됩니다. 예약자는 이메일의 링크를 클릭하여 예약 페이지에 접근할 수 있습니다.
 
 **토큰 정책**: 1회 예약용이 아니라 "해당 email에 대한 관리 토큰" 성격으로, 취소/조회 등 관리 기능에 사용됩니다.
 
@@ -18,18 +18,29 @@ INVITATION_TOKEN_EXPIRES_DAYS=7
 
 # 예약자 프론트엔드 URL (초대 링크 생성 시 사용)
 APPLICANT_FRONTEND_URL=http://localhost:5173
+
+# SMTP 설정 (이메일 전송용)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASSWORD=your-app-password
+SMTP_FROM=your-email@gmail.com
 ```
 
 **참고**: 환경 변수가 설정되지 않은 경우 기본값이 사용됩니다.
 
 - `INVITATION_TOKEN_EXPIRES_DAYS`: 기본값 7일
 - `APPLICANT_FRONTEND_URL`: 기본값 `http://localhost:5173`
+- `SMTP_HOST`: 기본값 `smtp.gmail.com`
+- `SMTP_PORT`: 기본값 `587`
+- `SMTP_USER`, `SMTP_PASSWORD`: 이메일 전송을 위해 필수
+- `SMTP_FROM`: 발신자 이메일 (기본값: `SMTP_USER`)
 
 ## API 엔드포인트
 
 ### POST /api/admin/invitations
 
-Admin이 이메일로 초대 링크 토큰을 생성합니다.
+Admin이 이메일 주소를 입력하면 초대 링크 토큰을 생성하고 해당 이메일로 자동 전송합니다.
 
 **인증**: `AdminRoleGuard` 필요 (JWT 인증 필수)
 
@@ -61,7 +72,7 @@ Admin이 이메일로 초대 링크 토큰을 생성합니다.
     "expiresAt": "2025-01-14T00:00:00.000Z",
     "counselorId": "counselor-uuid"
   },
-  "message": "초대 링크가 생성되었습니다."
+  "message": "이메일이 전송되었습니다."
 }
 ```
 
@@ -71,6 +82,14 @@ Admin이 이메일로 초대 링크 토큰을 생성합니다.
 2. 만료일 계산 (요청 파라미터 또는 환경변수 또는 기본값 7일)
 3. 기존 토큰이 있으면 삭제 후 새로 생성 (재발급)
 4. 랜덤 토큰 생성 (32바이트 = 64자리 hex 문자열)
+5. 초대 링크 생성 (`APPLICANT_FRONTEND_URL/reservation?token=...`)
+6. 상담사 정보 조회 (이메일 본문에 이름 포함)
+7. 이메일 전송 (SMTP를 통해 예약자에게 초대 링크 전송)
+
+**에러 응답:**
+
+- `400 Bad Request`: 유효하지 않은 이메일 주소
+- `500 Internal Server Error`: 이메일 전송 실패 (SMTP 설정 확인 필요)
 5. 프론트엔드 링크 생성
 
 **에러 응답:**

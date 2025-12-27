@@ -4,9 +4,10 @@ import { PublicInvitationsController } from './public-invitations.controller';
 import { InvitationsService } from './invitations.service';
 import { InvitationsRepository } from './invitations.repository';
 import { PrismaModule } from '../prisma/prisma.module';
+import { MailModule } from '../mail/mail.module';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, MailModule],
   controllers: [AdminInvitationsController, PublicInvitationsController],
   providers: [InvitationsService, InvitationsRepository],
   exports: [InvitationsService],

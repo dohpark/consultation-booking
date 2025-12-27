@@ -1,6 +1,8 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { PrismaService } from '../prisma/prisma.service';
 import { InvitationsRepository } from './invitations.repository';
+import { MailService } from '../mail/mail.service';
 import { InvitationResponseDto } from './dto/invitation-response.dto';
 import { ValidateTokenResponseDto } from './dto/validate-token-response.dto';
 
@@ -9,10 +11,12 @@ export class InvitationsService {
   constructor(
     private readonly invitationsRepository: InvitationsRepository,
     private readonly configService: ConfigService,
+    private readonly prisma: PrismaService,
+    private readonly mailService: MailService,
   ) {}
 
   /**
-   * 초대 링크 토큰 생성
+   * 초대 링크 토큰 생성 및 이메일 전송
    * @param email 예약자 이메일
    * @param counselorId 상담사 ID (현재 로그인한 상담사)
    * @param expiresInDays 만료일 (기본값: 환경변수 또는 7일)
@@ -33,6 +37,15 @@ export class InvitationsService {
     // 프론트엔드 URL 가져오기 (환경변수 또는 기본값)
     const frontendUrl = this.configService.get<string>('APPLICANT_FRONTEND_URL') || 'http://localhost:5173';
     const link = `${frontendUrl}/reservation?token=${inviteToken.token}`;
+
+    // 상담사 정보 조회 (이메일 본문에 이름 포함)
+    const counselor = await this.prisma.counselor.findUnique({
+      where: { id: counselorId },
+      select: { name: true },
+    });
+
+    // 이메일 전송
+    await this.mailService.sendInvitationEmail(normalizedEmail, link, counselor?.name);
 
     return {
       token: inviteToken.token,

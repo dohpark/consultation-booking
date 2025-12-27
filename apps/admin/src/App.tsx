@@ -7,6 +7,7 @@ import { AdminLayout } from './shared/layouts/AdminLayout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Settings from './pages/Settings';
+import Invitations from './pages/Invitations';
 
 function App() {
   return (
@@ -27,6 +28,7 @@ function App() {
           >
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
+            <Route path="invitations" element={<Invitations />} />
             <Route path="settings" element={<Settings />} />
             {/* Add more admin routes here */}
           </Route>

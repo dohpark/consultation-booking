@@ -17,7 +17,7 @@ export class AdminInvitationsController {
 
   /**
    * POST /admin/invitations
-   * Admin이 이메일로 초대 링크 토큰 생성
+   * Admin이 이메일로 초대 링크 전송
    */
   @Post()
   @HttpCode(HttpStatus.OK)
@@ -26,6 +26,6 @@ export class AdminInvitationsController {
     @CurrentUser() user: CurrentUserType,
   ): Promise<ApiResponse<InvitationResponseDto>> {
     const result = await this.invitationsService.createInvitation(dto.email, user.userId, dto.expiresInDays);
-    return ApiResponse.success(result, '초대 링크가 생성되었습니다.');
+    return ApiResponse.success(result, '이메일이 전송되었습니다.');
   }
 }
