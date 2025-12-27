@@ -150,6 +150,36 @@ export class SlotsService {
   }
 
   /**
+   * 날짜 범위 슬롯 조회 (Public - 예약 가능 여부 포함)
+   */
+  async getPublicSlotsByDateRange(
+    counselorId: string,
+    from: string,
+    to: string,
+    offset: number = 0,
+  ): Promise<SlotResponseDto[]> {
+    const parseUTCDateWithOffset = (dateStr: string, offset: number) => {
+      const [year, month, day] = dateStr.split('-').map(Number);
+      const targetDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+      return new Date(targetDate.getTime() + offset * 60 * 1000);
+    };
+
+    const fromDate = parseUTCDateWithOffset(from, offset);
+    const toDate = parseUTCDateWithOffset(to, offset);
+    // 종료 날짜의 끝(23:59:59.999 UTC)까지 포함하도록 설정
+    const toDateEnd = new Date(toDate);
+    toDateEnd.setUTCHours(23, 59, 59, 999);
+
+    if (fromDate > toDateEnd) {
+      throw new BadRequestException('시작 날짜는 종료 날짜보다 이전이어야 합니다.');
+    }
+
+    const slots = await this.slotsRepository.findByCounselorAndDateRange(counselorId, fromDate, toDateEnd);
+
+    return slots.map(slot => this.toResponseDto(slot));
+  }
+
+  /**
    * 특정 날짜의 슬롯 조회 (Public - 예약 가능 여부 포함)
    */
   async getPublicSlotsByDate(counselorId: string, date: string, offset: number = 0): Promise<SlotResponseDto[]> {

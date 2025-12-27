@@ -17,4 +17,3 @@ export function groupSlotsByDate(slots: Slot[]): Record<string, Slot[]> {
   });
   return grouped;
 }
-

@@ -48,13 +48,37 @@ export function CalendarMonthView({
     // 현재 보이는 날짜 범위의 모든 날짜 셀 업데이트
     const currentDate = new Date(start);
     while (currentDate < end) {
+      // 로컬 시간 기준으로 날짜 키 생성 (groupSlotsByDate와 동일한 방식)
       const dateKey = format(currentDate, 'yyyy-MM-dd');
       const root = dayEventRootsRef.current.get(dateKey);
+      const daySlots = slotsByDate[dateKey] || [];
 
       if (root) {
         // 이미 마운트된 날짜 셀 업데이트
-        const daySlots = slotsByDate[dateKey] || [];
         root.render(<TimeRangeSummary slots={daySlots} />);
+      } else if (daySlots.length > 0) {
+        // root가 없지만 슬롯이 있는 경우, FullCalendar의 날짜 셀을 찾아서 직접 업데이트
+        // 이는 dayCellDidMount가 아직 실행되지 않았거나, 실행되었지만 root가 저장되지 않은 경우를 처리
+        // @ts-expect-error - calendarApi.el은 타입 정의에 없지만 실제로 존재함
+        const dayEl = calendarApi.el?.querySelector(`[data-date="${dateKey}"]`) as HTMLElement | null;
+        if (dayEl) {
+          const dayEventsEl = dayEl.querySelector('.fc-daygrid-day-events') as HTMLElement;
+          if (dayEventsEl) {
+            // 기존 컨테이너 제거
+            const existingContainer = dayEventsEl.querySelector('div');
+            if (existingContainer && existingContainer.parentElement === dayEventsEl) {
+              dayEventsEl.removeChild(existingContainer);
+            }
+
+            // 새 컨테이너 생성
+            const container = document.createElement('div');
+            dayEventsEl.appendChild(container);
+
+            const newRoot = createRoot(container);
+            newRoot.render(<TimeRangeSummary slots={daySlots} />);
+            dayEventRootsRef.current.set(dateKey, newRoot);
+          }
+        }
       }
 
       currentDate.setDate(currentDate.getDate() + 1);
@@ -72,6 +96,7 @@ export function CalendarMonthView({
     (arg: DayCellMountArg) => {
       const dateKey = format(arg.date, 'yyyy-MM-dd');
       const dayEventsEl = arg.el.querySelector('.fc-daygrid-day-events') as HTMLElement;
+      const daySlots = slotsByDate[dateKey] || [];
 
       if (!dayEventsEl) return;
 
@@ -97,7 +122,6 @@ export function CalendarMonthView({
       dayEventsEl.appendChild(container);
 
       const root = createRoot(container);
-      const daySlots = slotsByDate[dateKey] || [];
       root.render(<TimeRangeSummary slots={daySlots} />);
       dayEventRootsRef.current.set(dateKey, root);
     },

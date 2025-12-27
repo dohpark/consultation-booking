@@ -15,13 +15,17 @@ export class PublicSlotsController {
   ) {}
 
   /**
-   * GET /public/slots?date=YYYY-MM-DD&token=...
-   * 특정 날짜 슬롯 목록 조회 (예약 가능 여부 포함)
+   * GET /public/slots?date=YYYY-MM-DD&token=...&offset=...
+   * 또는
+   * GET /public/slots?from=YYYY-MM-DD&to=YYYY-MM-DD&token=...&offset=...
+   * 특정 날짜 또는 날짜 범위 슬롯 목록 조회 (예약 가능 여부 포함)
    */
   @Get()
-  async getSlotsByDate(
-    @Query('date') date: string,
-    @Query('token') token: string,
+  async getSlots(
+    @Query('date') date?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('token') token?: string,
     @Query('offset') offset?: string,
   ): Promise<ApiResponse<SlotResponseDto[]>> {
     if (!token) {
@@ -30,11 +34,25 @@ export class PublicSlotsController {
 
     const tokenInfo = await this.invitationsService.validateToken(token);
     const counselorId: string = tokenInfo.counselorId;
-
-    // 오프셋을 고려하여 서비스 호출 (기본값 0)
     const tzOffset = offset ? parseInt(offset, 10) : 0;
-    const result: SlotResponseDto[] = await this.slotsService.getPublicSlotsByDate(counselorId, date, tzOffset);
 
-    return ApiResponse.success(result);
+    // 날짜 범위 조회 (from, to가 모두 있는 경우)
+    if (from && to) {
+      const result: SlotResponseDto[] = await this.slotsService.getPublicSlotsByDateRange(
+        counselorId,
+        from,
+        to,
+        tzOffset,
+      );
+      return ApiResponse.success(result);
+    }
+
+    // 단일 날짜 조회 (date가 있는 경우)
+    if (date) {
+      const result: SlotResponseDto[] = await this.slotsService.getPublicSlotsByDate(counselorId, date, tzOffset);
+      return ApiResponse.success(result);
+    }
+
+    throw new BadRequestException('date 또는 from/to 파라미터가 필요합니다.');
   }
 }

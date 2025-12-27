@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import type FullCalendar from '@fullcalendar/react';
-import { useSlots } from '../domains/slots/hooks/useSlots';
+import { useSlotsByMonth } from '../domains/slots/hooks/useSlotsByMonth';
 import { CalendarHeader } from '../domains/slots/components/CalendarHeader';
 import { CalendarMonthView } from '../domains/slots/components/CalendarMonthView';
 
@@ -22,14 +22,18 @@ export default function Booking() {
     [],
   );
 
-  // 선택된 날짜의 슬롯 조회
-  const selectedDateStr = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : null;
-  const { data: selectedSlots, isLoading: isLoadingSelected } = useSlots(selectedDateStr, token);
+  // 현재 월의 모든 슬롯 조회
+  const { data: monthSlots, isLoading: isLoadingMonth } = useSlotsByMonth(currentDate, token);
 
-  // 캘린더에 표시할 슬롯 (선택된 날짜의 슬롯만)
-  const calendarSlots = useMemo(() => {
-    return selectedSlots || [];
-  }, [selectedSlots]);
+  // 선택된 날짜의 슬롯 필터링
+  const selectedSlots = useMemo(() => {
+    if (!selectedDate || !monthSlots) return [];
+    const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
+    return monthSlots.filter(slot => {
+      const slotDateStr = format(parseISO(slot.startAt), 'yyyy-MM-dd');
+      return slotDateStr === selectedDateStr;
+    });
+  }, [selectedDate, monthSlots]);
 
   // 캘린더 네비게이션 핸들러
   const handlePrev = useCallback(() => {
@@ -104,8 +108,8 @@ export default function Booking() {
 
           {/* 캘린더 */}
           <CalendarMonthView
-            slots={calendarSlots}
-            isLoading={isLoadingSelected}
+            slots={monthSlots || []}
+            isLoading={isLoadingMonth}
             onDateClick={handleDateClick}
             onNavigationChange={handleNavigationChange}
             calendarRef={calendarRef}
@@ -125,20 +129,20 @@ export default function Booking() {
               </button>
             </div>
 
-            {isLoadingSelected && (
+            {isLoadingMonth && (
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                 <span className="ml-3 text-text-secondary">슬롯을 불러오는 중...</span>
               </div>
             )}
 
-            {!isLoadingSelected && sortedSlots.length === 0 && (
+            {!isLoadingMonth && sortedSlots.length === 0 && (
               <div className="bg-bg-tertiary rounded-lg p-6 text-center">
                 <p className="text-text-secondary">예약 가능한 슬롯이 없습니다.</p>
               </div>
             )}
 
-            {!isLoadingSelected && sortedSlots.length > 0 && (
+            {!isLoadingMonth && sortedSlots.length > 0 && (
               <div className="grid gap-3">
                 {sortedSlots.map(slot => {
                   const isDisabled = slot.availableCount === 0;
