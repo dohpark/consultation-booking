@@ -1,17 +1,7 @@
+import type { ValidateTokenResponse, ApiResponse } from '../types';
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002';
 const getApiEndpoint = (path: string) => `${API_URL}/api${path}`;
-
-export interface ValidateTokenResponse {
-  email: string;
-  counselorId: string;
-  expiresAt: string;
-}
-
-export interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  message?: string;
-}
 
 /**
  * 토큰 검증

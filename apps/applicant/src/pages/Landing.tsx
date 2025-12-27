@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useValidateToken } from '../hooks/useValidateToken';
+import { useValidateToken } from '../domains/invitations/hooks/useValidateToken';
 
 export default function Landing() {
   const [searchParams] = useSearchParams();
